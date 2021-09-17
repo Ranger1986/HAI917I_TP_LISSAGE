@@ -2,9 +2,7 @@
 Code derived from GMINI
 -----------
 
-version: 0.1
-
-Author: Tamy Boubekeur (http://www.labri.fr/~boubek)
+Author: Tamy Boubekeur (https://perso.telecom-paristech.fr/boubek/)
 
 
 Description
@@ -20,3 +18,12 @@ Installation
 This is an alpha release, you may have to set up the makefile with
 your lib/include path and options.
 
+
+Compilation 
+------------
+make
+
+
+Execution 
+------------
+./tp
