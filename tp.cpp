@@ -118,11 +118,14 @@ PointSet transformed_projection_on_basis[3];
 Plane planes[3];
 Plane transformed_planes[3];
 
+unsigned int plane_id;
+
 bool display_normals;
 bool display_mesh;
 bool display_transformed_mesh;
 bool display_ellipsoide;
 bool display_basis;
+bool display_plane;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -303,12 +306,12 @@ void setEllipsoide( Mesh & o_mesh, Basis i_basis, int nX=20, int nY=20 )
             float p = phiStep*j - M_PI/2;
 
             Vec3 position(cos(t)*cos(p), sin(t)*cos(p), sin(p));
-            Vec3 normal(position[0],position[1],position[2]);
+            Vec3 normal = n_rot*position;
 
             normal.normalize();
 
             o_mesh.vertices.push_back(rot*position+i_basis.origin);
-            o_mesh.normals.push_back(n_rot*normal);
+            o_mesh.normals.push_back(normal);
         }
     }
     for(int i=0; i<nX-1;i++)
@@ -348,10 +351,14 @@ void init () {
     glEnable (GL_DEPTH_TEST);
     glClearColor (0.2f, 0.2f, 0.3f, 1.0f);
     glEnable(GL_COLOR_MATERIAL);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
     display_normals = false;
     display_mesh = true;
     display_transformed_mesh = true;
+    display_plane = false;
+
+    plane_id = 0;
 }
 
 
@@ -481,10 +488,23 @@ void draw () {
             for( unsigned int i = 0 ; i < 3 ; i++ ){
                 glColor3f(1.,1,1.);
                 drawPointSet(projection_on_basis[i].positions);
-
-                glColor3f(1.,0.,1.);
-                //  drawPlane(planes[i]);
             }
+        }
+
+        if( display_plane ){
+            glColor3f(0.94,0.81,0.38);
+            drawPlane(planes[plane_id]);
+
+            PointSet projection_on_plane;
+            project( mesh.vertices, projection_on_plane.positions, planes[plane_id] );
+
+            glColor3f(1.,1,1.);
+            drawPointSet( projection_on_plane.positions );
+        }
+
+        if( display_ellipsoide ){
+            glColor3f(0.39,0.57,0.67);
+            drawTriangleMesh(ellipsoide);
         }
     }
 
@@ -499,17 +519,27 @@ void draw () {
             for( unsigned int i = 0 ; i < 3 ; i++ ){
                 glColor3f(1.,1,1.);
                 drawPointSet(transformed_projection_on_basis[i].positions);
-
-                glColor3f(0.,0.,1.);
-                drawPlane(transformed_planes[i]);
             }
+        }
+
+        if( display_plane ){
+            glColor3f(0.94,0.81,0.38);
+            drawPlane(transformed_planes[plane_id]);
+
+            PointSet projection_on_plane;
+            project( transformed_mesh.vertices, projection_on_plane.positions, transformed_planes[plane_id] );
+
+            glColor3f(1.,1,1.);
+            drawPointSet( projection_on_plane.positions );
+        }
+
+        if( display_ellipsoide ){
+            glColor3f(0.39,0.57,0.67);
+            drawTriangleMesh(transformed_ellipsoide);
         }
     }
 
-    if( display_ellipsoide ){
-        drawTriangleMesh(ellipsoide);
-        drawTriangleMesh(transformed_ellipsoide);
-    }
+
 
 }
 
@@ -568,6 +598,15 @@ void key (unsigned char keyPressed, int x, int y) {
 
     case '2': //Toggle transformed mesh display
         display_transformed_mesh = !display_transformed_mesh;
+        break;
+
+    case 'p': //Toggle plane display
+        display_plane = !display_plane;
+        break;
+
+    case '+': //change plane to display
+        plane_id++;
+        if( plane_id > 2 ) plane_id = 0;
         break;
 
     default:
@@ -654,23 +693,23 @@ int main (int argc, char ** argv) {
     Mat3 scale (2, 0., 0.,
                 0.0, 0.5, 0.,
                 0.0, 0., 1.);
-    mesh_transformation.rotation = Mat3::RandRotation();//*scale; //probleme with scale
+    mesh_transformation.rotation = Mat3::RandRotation()*scale;
 
     mesh_transformation.translation = Vec3( -1.0 + 2.0 * ((double)(rand()) / (double)(RAND_MAX)),-1.0 + 2.0 * ((double)(rand()) / (double)(RAND_MAX)),-1.0 + 2.0 * ((double)(rand()) / (double)(RAND_MAX)) );
 
     normal_transformation = Mat3::inverse(mesh_transformation.rotation);
     normal_transformation.transpose();
 
-
-
     transformed_basis = Basis( mesh_transformation.translation,
                                mesh_transformation.rotation * basis.i,
                                mesh_transformation.rotation * basis.j,
-                               mesh_transformation.rotation * basis.k );
+                               mesh_transformation.rotation * basis.k );//Not normalized vectors
 
     for( unsigned int i = 0 ; i < mesh.vertices.size() ; ++i ) {
         transformed_mesh.vertices.push_back( mesh_transformation.rotation * mesh.vertices[i] + mesh_transformation.translation );
-        transformed_mesh.normals.push_back( normal_transformation * mesh.normals[i] );
+        Vec3 normal = normal_transformation * mesh.normals[i];
+        normal.normalize();
+        transformed_mesh.normals.push_back( normal );
     }
 
     transformed_mesh.triangles = mesh.triangles;
@@ -683,24 +722,28 @@ int main (int argc, char ** argv) {
     for( unsigned int i = 0 ; i < 3 ; i++ ){
         planes[i] = Plane(basis.origin, basis[i] );
         transformed_planes[i].point = mesh_transformation.rotation*planes[i].point + mesh_transformation.translation;
-        transformed_planes[i].normal = normal_transformation*planes[i].normal ; //pb
+        transformed_planes[i].normal = normal_transformation*planes[i].normal ;
+        transformed_planes[i].normal.normalize();
 
-        project(transformed_mesh.vertices, transformed_projection_on_basis[i].positions, transformed_planes[i]);
+        project(transformed_mesh.vertices, transformed_projection_on_basis[i].positions, transformed_basis.origin, transformed_basis[i]/transformed_basis[i].length());
     }
 
     Vec3 bbmin, bbmax, center;
     computeBBox(mesh.vertices, bbmin, bbmax );
     Vec3 bboxCenter = (bbmin + bbmax) / 2.f;
 
-    //Normal problem ?
     setEllipsoide(ellipsoide, Basis( bboxCenter,
                                      0.5*(bbmax[0] - bbmin[0])*basis.i,
-                                     0.5*(bbmax[1] - bbmin[1])*basis.j,
-                                     0.5*(bbmax[2] - bbmin[2])*basis.k));
+            0.5*(bbmax[1] - bbmin[1])*basis.j,
+            0.5*(bbmax[2] - bbmin[2])*basis.k));
 
     for( unsigned int i = 0 ; i < ellipsoide.vertices.size() ; ++i ) {
         transformed_ellipsoide.vertices.push_back( mesh_transformation.rotation*ellipsoide.vertices[i] + mesh_transformation.translation );
-        transformed_ellipsoide.normals.push_back( normal_transformation*ellipsoide.normals[i] );
+
+        Vec3 normal = normal_transformation*ellipsoide.normals[i] ;
+        normal.normalize();
+
+        transformed_ellipsoide.normals.push_back( normal );
     }
 
     transformed_ellipsoide.triangles = ellipsoide.triangles;
