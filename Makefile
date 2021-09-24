@@ -1,11 +1,11 @@
-# Makefile pour un unique exécutable
+# Makefile pour un unique exÃ©cutable
 
-# liste des variables à renseigner
+# liste des variables Ã  renseigner
 #   CIBLE : nom du programme ( $(CIBLE).c doit contenir main() )
 #   SRCS : ensemble des fichiers sources 
-#   LIBS : liste des bibliothèques utiles à l'édition des liens 
+#   LIBS : liste des bibliothÃ¨ques utiles Ã  l'Ã©dition des liens
 #          (format : -lnom1 -lnom2 ...) 
-#   PREFIX : chemin de la hiérarchie 
+#   PREFIX : chemin de la hiÃ©rarchie
 #
 # NE PAS OUBLIER D'AJOUTER LA LISTE DES DEPENDANCES A LA FIN DU FICHIER
 
@@ -30,15 +30,15 @@ CXXFLAGS = -Wall -O3
 # option du preprocesseur
 CPPFLAGS =  -I$(INCDIR) 
 
-# options du linker et liste des bibliothèques à charger
+# options du linker et liste des bibliothÃ¨ques Ã  charger
 LDFLAGS = -L/usr/X11R6/lib              
 LDLIBS = -L$(LIBDIR) $(LIBS)  
 
-# construire la liste des fichiers objets une nouvelle chaine à partir
+# construire la liste des fichiers objets une nouvelle chaine Ã  partir
 # de SRCS en substituant les occurences de ".c" par ".o" 
 OBJS = $(SRCS:.cpp=.o)   
 
-# cible par défaut
+# cible par dÃ©faut
 $(CIBLE): $(OBJS)
 
 install:  $(CIBLE)
@@ -58,7 +58,7 @@ veryclean: clean
 dep:
 	gcc $(CPPFLAGS) -MM $(SRCS)
 
-# liste des dépendances générée par 'make dep'
+# liste des dÃ©pendances gÃ©nÃ©rÃ©e par 'make dep'
 Camera.o: src/Camera.cpp src/Camera.h src/Vec3.h src/Trackball.h
 tp.o: tp.cpp src/Vec3.h src/Camera.h src/Trackball.h
 Trackball.o: src/Trackball.cpp src/Trackball.h
