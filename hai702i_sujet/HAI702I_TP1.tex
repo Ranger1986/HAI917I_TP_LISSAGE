@@ -34,36 +34,92 @@ $ ./tp
 \end{minted}
 
 %TODO Faire la description du code
-% \subsection{Rendu de maillages}
-% 
-% Le fichier tp.cpp contient une m\'ethode \code{drawTriangleMesh()}, qui contient du code openGL basique permettant d'afficher un maillage triangulaire.
-% 
-% \lstset{language=C++}
-% \begin{lstlisting}
-%     void drawSmoothTriangleMesh( Mesh const & i_mesh ) {
-%         // This code is deprecated. 
-%         glBegin(GL_TRIANGLES);
-%         for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
-%             Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]];
-%             Vec3 n0 = i_mesh.normals[i_mesh.triangles[tIt][0]];
-% 
-%             Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
-%             Vec3 n1 = i_mesh.normals[i_mesh.triangles[tIt][1]];
-% 
-%             Vec3 p2 = i_mesh.vertices[i_mesh.triangles[tIt][2]];
-%             Vec3 n2 = i_mesh.normals[i_mesh.triangles[tIt][2]];
-% 
-%             glNormal3f( n0[0] , n0[1] , n0[2] );
-%             glVertex3f( p0[0] , p0[1] , p0[2] );
-%             glNormal3f( n1[0] , n1[1] , n1[2] );
-%             glVertex3f( p1[0] , p1[1] , p1[2] );
-%             glNormal3f( n2[0] , n2[1] , n2[2] );
-%             SglVertex3f( p2[0] , p2[1] , p2[2] );
-%     }
-%     glEnd();
-%     }
-% \end{lstlisting}
+\subsection{Interactions utilisateur}
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
+void key (unsigned char keyPressed, int x, int y)
+\end{minted}
+La fonction \code{key} permet de d'interpreter les entrée clavier utilisateur.
+Les options de visualisation activée par des touches sont les suivantes, en appuyant sur la touche :
+\begin{itemize}
+ \item \code{n} : activation/desactivation de l'affichage des normales,
+ \item \code{1} : activation/desactivation de l'affichage du modèle d'entrée sur lequel vous effectuez les calculs de normale,
+ \item \code{2} : activation/desactivation de l'affichage du modèle transformé,
+ \item \code{s} : changement entre l'affichage avec les normales de face et de sommet (maillage plus lisse),
+ \item \code{w} : activation/desactivation de l'affichage en fil de fer,
+ \item \code{b} : activation/desactivation de l'affichage des repères,
+ \item \code{f} : activation/desactivation du mode plein écran.
+\end{itemize}
 
+Vous pouvez interagir avec le modèle avec la souris :
+\begin{itemize}
+ \item Bouton du milieu appuyé : zoomer ou reculer la caméra,
+ \item Clique gauche appuyé : faire tourner le modèle.
+\end{itemize}
+
+ \subsection{Rendu de maillages}
+ 
+Le fichier tp.cpp contient une m\'ethode \code{draw} est une fonction appelée pour rafraichir l'affichage dès que nécessaire. Elle permet de définir quels sont les élements à afficher, leurs couleurs (\code{glColor3f(r,g,b)} en float de 0 à 1 donnant la couleur RGB = (r*255, g*255, b*255) ). La fonction \code{drawMesh()} permet d'afficher un maillage triangulaire.
+Celle-ci fait appel à deux fonctions contenant du code OpenGL basique pour afficher des maillages. 
+La première permet un affichage en utilisant les normales au triangles : 
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
+    void drawTriangleMesh( Mesh const & i_mesh ) {
+        
+        glBegin(GL_TRIANGLES);
+        //Iterer sur les triangles
+        for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
+            //Récupération des positions des 3 sommets du triangle pour l'affichage
+            //Vertices --> liste indexée de sommets 
+            //i_mesh.triangles[tIt][i] --> indice du sommet vi du triangle dans la liste de sommet 
+            //pi --> position du sommet vi du triangle
+            
+            //Normal au triangle
+            Vec3 n = i_mesh.triangle_normals[tIt];
+
+            glNormal3f( n[0] , n[1] , n[2] );
+
+            glVertex3f( p0[0] , p0[1] , p0[2] );
+            glVertex3f( p1[0] , p1[1] , p1[2] );
+            glVertex3f( p2[0] , p2[1] , p2[2] );
+        }
+        glEnd();
+    }
+ \end{minted}
+La première permet un affichage en utilisant les normales aux sommets :  
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
+    void drawSmoothTriangleMesh( Mesh const & i_mesh ) {
+        
+        glBegin(GL_TRIANGLES);
+        //Iterer sur les triangles
+        for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
+            //Récupération des positions des 3 sommets du triangle pour l'affichage
+            //Vertices --> liste indexée de sommets 
+            //i_mesh.triangles[tIt][i] --> indice du sommet vi du triangle dans la liste de sommet 
+            //pi --> position du sommet vi du triangle
+            //ni --> normal du sommet vi du triangle pour un affichage lisse
+            Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]];
+            Vec3 n0 = i_mesh.normals[i_mesh.triangles[tIt][0]];
+
+            Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
+            Vec3 n1 = i_mesh.normals[i_mesh.triangles[tIt][1]];
+
+            Vec3 p2 = i_mesh.vertices[i_mesh.triangles[tIt][2]];
+            Vec3 n2 = i_mesh.normals[i_mesh.triangles[tIt][2]];
+
+            //Passage des positions et normales à OpenGL
+            glNormal3f( n0[0] , n0[1] , n0[2] );
+            glVertex3f( p0[0] , p0[1] , p0[2] );
+            glNormal3f( n1[0] , n1[1] , n1[2] );
+            glVertex3f( p1[0] , p1[1] , p1[2] );
+            glNormal3f( n2[0] , n2[1] , n2[2] );
+            glVertex3f( p2[0] , p2[1] , p2[2] );
+    }
+    glEnd();
+    }
+ \end{minted}
+\paragraph{Remarque}
+Vous pouvez vous inspirer de ce code pour le parcours du maillage nécessaire au calcul des normales. 
+
+Vous remarquerez qu'il y a plusieurs fonction commençant par \code{draw}, elles permettant l'affiche de vecteurs, repères et champs de vecteurs tels que les normales.
 \section{Calcul géométrique et implémentation de classes}
 
 \label{sec_exo_Vec3}
