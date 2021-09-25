@@ -60,30 +60,30 @@ struct Mesh {
     //Compute face normals for the display
     void computeTrianglesNormals(){
 
-        triangle_normals.clear();
-        //Iterate over mesh triangles
-        for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
-            //Triangle i normal is the normalized cross product of two of its edges
-            const Vec3 & e0 = vertices[triangles[i][1]] - vertices[triangles[i][0]];
-            const Vec3 & e1 = vertices[triangles[i][2]] - vertices[triangles[i][0]];
+        //A faire : implémenter le calcul des normales par face
+        //Attention commencer la fonction par triangle_normals.clear();
+        //Iterer sur les triangles
 
-            Vec3 n = Vec3::cross( e0, e1 );
-            n.normalize();
-            triangle_normals.push_back( n );
-        }
+        //La normal du triangle i est le resultat du produit vectoriel de deux ses arêtes e_10 et e_20 normalisé (e_10^e_20)
+        //L'arete e_10 est représentée par le vecteur partant du sommet 0 (triangles[i][0]) au sommet 1 (triangles[i][1])
+        //L'arete e_20 est représentée par le vecteur partant du sommet 0 (triangles[i][0]) au sommet 2 (triangles[i][2])
+
+        //Normaliser et ajouter dans triangle_normales
     }
 
     //Compute vertices normals as the average of its incident faces normals
     void computeVerticesNormals(){
 
-        normals.clear();
-        normals.resize( vertices.size(), Vec3(0., 0., 0.) );
-        for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
-            for( unsigned int t = 0 ; t < 3 ; t++ )
-                normals[ triangles[i][t] ] += triangle_normals[i];
-        }
-        for( unsigned int i = 0 ; i < vertices.size() ;i++ )
-            normals[ i ].normalize();
+        //A faire : implémenter le calcul des normales par sommet comme la moyenne des normales des triangles incidents
+        //Attention commencer la fonction par normals.clear();
+        //Initializer le vecteur normals taille vertices.size() avec Vec3(0., 0., 0.)
+        //Iterer sur les triangles
+
+        //Pour chaque triangle i
+        //Ajouter la normal au triangle à celle de chacun des sommets
+
+        //Iterer sur les normales et les normaliser
+
 
     }
 
@@ -120,33 +120,10 @@ struct Basis {
     Vec3 k;
 };
 
-//Poinset data
-struct PointSet {
-    std::vector< Vec3 > positions;
-    std::vector< Vec3 > normals;
-};
-
-//Plane defined by a point and a normal
-struct Plane {
-    inline Plane ( Vec3 const & i_point,  Vec3 const & i_normal ) {
-        point = i_point; normal = i_normal;
-    }
-
-    inline Plane ( ) {
-        point = Vec3(0., 0., 0.);
-        normal = Vec3(0., 1., 0.);
-    }
-    Vec3 point;
-    Vec3 normal;
-};
-
 //Input mesh loaded at the launch of the application
 Mesh mesh;
 //Mesh on which a transformation is applied
 Mesh transformed_mesh;
-
-Mesh ellipsoide;
-Mesh transformed_ellipsoide;
 
 Transformation mesh_transformation;
 Mat3 normal_transformation;
@@ -154,21 +131,11 @@ Mat3 normal_transformation;
 Basis basis;
 Basis transformed_basis;
 
-PointSet projection_on_basis[3];
-PointSet transformed_projection_on_basis[3];
-
-Plane planes[3];
-Plane transformed_planes[3];
-
-unsigned int plane_id;
-
 bool display_normals;
 bool display_smooth_normals;
 bool display_mesh;
 bool display_transformed_mesh;
-bool display_ellipsoide;
 bool display_basis;
-bool display_plane;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -184,35 +151,6 @@ static bool mouseZoomPressed = false;
 static int lastX=0, lastY=0, lastZoom=0;
 static bool fullScreen = false;
 
-
-
-// ------------------------------------
-// Projections
-// ------------------------------------
-
-Vec3 project( Vec3 const & input_point, Plane const & i_plane ) {
-    Vec3 cx = input_point - i_plane.point;
-    return input_point - Vec3::dot(cx, i_plane.normal) * i_plane.normal;
-}
-
-Vec3 project( Vec3 const & input_point, Vec3 const & i_origin, Vec3 const & i_axis ) {
-    return i_origin + Vec3::dot( input_point - i_origin, i_axis ) * i_axis;
-}
-
-void project( std::vector<Vec3> const & i_points, std::vector<Vec3> & o_points, Vec3 const & i_origin, Vec3 const & i_axis ) {
-    o_points.clear();
-    for( unsigned int i = 0 ; i < i_points.size() ; i++ )
-        o_points.push_back( project( i_points[i], i_origin, i_axis) );
-}
-
-void project( std::vector<Vec3> const & i_points, std::vector<Vec3> & o_points, Plane const & i_plane ) {
-    o_points.clear();
-    for( unsigned int i = 0 ; i < i_points.size() ; i++ )
-        o_points.push_back( project( i_points[i], i_plane ) );
-}
-// ------------------------------------
-
-
 // ------------------------------------
 // File I/O
 // ------------------------------------
@@ -220,6 +158,7 @@ bool saveOFF( const std::string & filename ,
               std::vector< Vec3 > & i_vertices ,
               std::vector< Vec3 > & i_normals ,
               std::vector< Triangle > & i_triangles,
+              std::vector< Vec3 > & i_triangle_normals ,
               bool save_normals = true ) {
     std::ofstream myfile;
     myfile.open(filename.c_str());
@@ -239,7 +178,8 @@ bool saveOFF( const std::string & filename ,
         else myfile << std::endl;
     }
     for( unsigned int f = 0 ; f < n_triangles ; ++f ) {
-        myfile << 3 << " " << i_triangles[f][0] << " " << i_triangles[f][1] << " " << i_triangles[f][2];
+        myfile << 3 << " " << i_triangles[f][0] << " " << i_triangles[f][1] << " " << i_triangles[f][2]<< " ";
+        if (save_normals) myfile << i_triangle_normals[f][0] << " " << i_triangle_normals[f][1] << " " << i_triangle_normals[f][2];
         myfile << std::endl;
     }
     myfile.close();
@@ -250,6 +190,7 @@ void openOFF( std::string const & filename,
               std::vector<Vec3> & o_vertices,
               std::vector<Vec3> & o_normals,
               std::vector< Triangle > & o_triangles,
+              std::vector< Vec3 > & o_triangle_normals,
               bool load_normals = true )
 {
     std::ifstream myfile;
@@ -291,6 +232,7 @@ void openOFF( std::string const & filename,
     }
 
     o_triangles.clear();
+    o_triangle_normals.clear();
     for( int f = 0 ; f < n_faces ; ++f )
     {
         int n_vertices_on_face;
@@ -302,6 +244,12 @@ void openOFF( std::string const & filename,
             myfile >> _v1 >> _v2 >> _v3;
 
             o_triangles.push_back(Triangle( _v1, _v2, _v3 ));
+
+            if( load_normals ) {
+                float x , y , z ;
+                myfile >> x >> y >> z;
+                o_triangle_normals.push_back( Vec3( x , y , z ) );
+            }
         }
         else if( n_vertices_on_face == 4 )
         {
@@ -310,6 +258,12 @@ void openOFF( std::string const & filename,
 
             o_triangles.push_back(Triangle(_v1, _v2, _v3 ));
             o_triangles.push_back(Triangle(_v1, _v3, _v4));
+            if( load_normals ) {
+                float x , y , z ;
+                myfile >> x >> y >> z;
+                o_triangle_normals.push_back( Vec3( x , y , z ) );
+            }
+
         }
         else
         {
@@ -319,62 +273,6 @@ void openOFF( std::string const & filename,
         }
     }
 
-}
-
-// ------------------------------------
-
-void computeBBox( std::vector< Vec3 > const & i_positions, Vec3 & bboxMin, Vec3 & bboxMax ) {
-    bboxMin = Vec3 ( FLT_MAX , FLT_MAX , FLT_MAX );
-    bboxMax = Vec3 ( FLT_MIN , FLT_MIN , FLT_MIN );
-    for(unsigned int pIt = 0 ; pIt < i_positions.size() ; ++pIt) {
-        for( unsigned int coord = 0 ; coord < 3 ; ++coord ) {
-            bboxMin[coord] = std::min<float>( bboxMin[coord] , i_positions[pIt][coord] );
-            bboxMax[coord] = std::max<float>( bboxMax[coord] , i_positions[pIt][coord] );
-        }
-    }
-}
-
-void setEllipsoide( Mesh & o_mesh, Basis i_basis, int nX=20, int nY=20 )
-{
-    o_mesh.vertices.clear();
-    o_mesh.normals.clear();
-    o_mesh.triangles.clear();
-    float thetaStep = 2*M_PI/(nX-1);
-    float phiStep = M_PI/(nY-1);
-
-    Mat3 rot = Mat3::getFromRows(i_basis[0], i_basis[1], i_basis[2]);
-    Mat3 n_rot = Mat3::inverse(rot);
-    n_rot.transpose();
-
-
-
-    for(int i=0; i<nX;i++)
-    {
-        for(int j=0;j<nY;j++)
-        {
-            float t = thetaStep*i;
-            float p = phiStep*j - M_PI/2;
-
-            Vec3 position(cos(t)*cos(p), sin(t)*cos(p), sin(p));
-            Vec3 normal = n_rot*position;
-
-            normal.normalize();
-
-            o_mesh.vertices.push_back(rot*position+i_basis.origin);
-            o_mesh.normals.push_back(normal);
-        }
-    }
-    for(int i=0; i<nX-1;i++)
-    {
-        for(int j=0;j<nY-1;j++)
-        {
-            o_mesh.triangles.push_back(Triangle(i*nY+j, (i+1)*nY+j, (i+1)*nY+j+1));
-            o_mesh.triangles.push_back(Triangle(i*nY+j, (i+1)*nY+j+1, i*nY+j+1));
-        }
-    }
-
-
-    ellipsoide.computeTrianglesNormals();
 }
 
 // ------------------------------------
@@ -409,27 +307,13 @@ void init () {
     display_normals = false;
     display_mesh = true;
     display_transformed_mesh = true;
-    display_plane = false;
     display_smooth_normals = true;
-
-    plane_id = 0;
 }
 
 
 // ------------------------------------
 // Rendering.
 // ------------------------------------
-
-void drawPointSet( std::vector< Vec3 > const & i_positions  ) {
-    glDisable(GL_LIGHTING);
-    glPointSize(2);
-    glBegin(GL_POINTS);
-    for(unsigned int pIt = 0 ; pIt < i_positions.size() ; ++pIt) {
-        glVertex3f( i_positions[pIt][0] , i_positions[pIt][1] , i_positions[pIt][2] );
-    }
-    glEnd();
-    glEnable(GL_LIGHTING);
-}
 
 void drawVector( Vec3 const & i_from, Vec3 const & i_to ) {
 
@@ -462,39 +346,11 @@ void drawReferenceFrame( Basis & i_basis ) {
     drawReferenceFrame( i_basis.origin, i_basis.i, i_basis.j, i_basis.k );
 }
 
-void drawPlane( Plane const & i_plane ) {
-
-
-    Vec3 j = i_plane.normal;
-    Vec3 i = i_plane.normal.getOrthogonal();
-    i.normalize();
-    Vec3 k = Vec3::cross(i,j);
-
-    Mat3 tr = Mat3::getFromCols(i,j,k);
-
-    Vec3 iplanes_vertices [] ={
-        tr*Vec3(-1.,0.,1.)+i_plane.point,
-        tr*Vec3(1.,0.,1.)+i_plane.point,
-        tr*Vec3(1.,0.,-1.)+i_plane.point,
-        tr*Vec3(-1.,0.,-1.)+i_plane.point
-    };
-
-    glBegin(GL_QUADS);
-    glNormal3f( i_plane.normal[0], i_plane.normal[1], i_plane.normal[2]);
-    for(unsigned int i = 0 ; i < 4 ; i ++)
-        glVertex3f( iplanes_vertices[i][0] , iplanes_vertices[i][1] , iplanes_vertices[i][2] );
-    glEnd();
-
-    Vec3 to = 0.5*i_plane.normal;
-    glColor3f(0.8,1,0.5); // GREEN
-    drawAxis( i_plane.point, to );
-}
-
 void drawSmoothTriangleMesh( Mesh const & i_mesh ) {
     glBegin(GL_TRIANGLES);
     for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
-        Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]];
-        Vec3 n0 = i_mesh.normals[i_mesh.triangles[tIt][0]];
+        Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]]; //Vertex position
+        Vec3 n0 = i_mesh.normals[i_mesh.triangles[tIt][0]]; //Vertex normal
 
         Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
         Vec3 n1 = i_mesh.normals[i_mesh.triangles[tIt][1]];
@@ -520,6 +376,7 @@ void drawTriangleMesh( Mesh const & i_mesh ) {
         Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
         Vec3 p2 = i_mesh.vertices[i_mesh.triangles[tIt][2]];
 
+        //Face normal
         Vec3 n = i_mesh.triangle_normals[tIt];
 
         glNormal3f( n[0] , n[1] , n[2] );
@@ -534,10 +391,9 @@ void drawTriangleMesh( Mesh const & i_mesh ) {
 
 void drawMesh( Mesh const & i_mesh ){
     if(display_smooth_normals)
-        drawSmoothTriangleMesh(i_mesh) ;
-    else {
-        drawTriangleMesh(i_mesh) ;
-    }
+        drawSmoothTriangleMesh(i_mesh) ; //Smooth display with vertices normals
+    else
+        drawTriangleMesh(i_mesh) ; //Display with face normals
 }
 
 void drawVectorField( std::vector<Vec3> const & i_positions, std::vector<Vec3> const & i_directions ) {
@@ -558,7 +414,7 @@ void drawNormals(Mesh const& i_mesh){
             Vec3 triangle_baricenter (0.,0.,0.);
             for( unsigned int i = 0 ; i < 3 ; i++ )
                 triangle_baricenter += i_mesh.vertices[triangle[i]];
-            triangle_baricenter /= 3;
+            triangle_baricenter /= 3.;
             triangle_baricenters.push_back(triangle_baricenter);
         }
 
@@ -573,6 +429,7 @@ void draw () {
         glColor3f(0.8,1,0.8);
         drawMesh(mesh);
 
+        glDisable(GL_LIGHTING);
         if(display_normals){
             glColor3f(1.,0.,0.);
             drawNormals(mesh);
@@ -580,67 +437,25 @@ void draw () {
 
         if( display_basis ){
             drawReferenceFrame(basis);
-
-            for( unsigned int i = 0 ; i < 3 ; i++ ){
-                glColor3f(1.,1,1.);
-                drawPointSet(projection_on_basis[i].positions);
-            }
         }
-
-        if( display_plane ){
-            glColor3f(0.94,0.81,0.38);
-            drawPlane(planes[plane_id]);
-
-            PointSet projection_on_plane;
-            project( mesh.vertices, projection_on_plane.positions, planes[plane_id] );
-
-            glColor3f(1.,1,1.);
-            drawPointSet( projection_on_plane.positions );
-        }
-
-        if( display_ellipsoide ){
-            glColor3f(0.39,0.57,0.67);
-            drawMesh(ellipsoide);
-        }
+        glEnable(GL_LIGHTING);
     }
 
     if( display_transformed_mesh ){
         glColor3f(0.8,0.8,1);
         drawMesh(transformed_mesh);
 
+        glDisable(GL_LIGHTING);
         if(display_normals){
             glColor3f(1.,0.,0.);
             drawNormals(transformed_mesh);
         }
 
         if( display_basis ){
-
             drawReferenceFrame(transformed_basis);
-
-            for( unsigned int i = 0 ; i < 3 ; i++ ){
-                glColor3f(1.,1,1.);
-                drawPointSet(transformed_projection_on_basis[i].positions);
-            }
         }
-
-        if( display_plane ){
-            glColor3f(0.94,0.81,0.38);
-            drawPlane(transformed_planes[plane_id]);
-
-            PointSet projection_on_plane;
-            project( transformed_mesh.vertices, projection_on_plane.positions, transformed_planes[plane_id] );
-
-            glColor3f(1.,1,1.);
-            drawPointSet( projection_on_plane.positions );
-        }
-
-        if( display_ellipsoide ){
-            glColor3f(0.39,0.57,0.67);
-            drawMesh(transformed_ellipsoide);
-        }
+        glEnable(GL_LIGHTING);
     }
-
-
 
 }
 
@@ -688,10 +503,6 @@ void key (unsigned char keyPressed, int x, int y) {
         display_basis = !display_basis;
         break;
 
-    case 'e': //Toggle ellipsoide display
-        display_ellipsoide = !display_ellipsoide;
-        break;
-
     case 'n': //Press n key to display normals
         display_normals = !display_normals;
         break;
@@ -702,15 +513,6 @@ void key (unsigned char keyPressed, int x, int y) {
 
     case '2': //Toggle transformed mesh display
         display_transformed_mesh = !display_transformed_mesh;
-        break;
-
-    case 'p': //Toggle plane display
-        display_plane = !display_plane;
-        break;
-
-    case '+': //change plane to display
-        plane_id++;
-        if( plane_id > 2 ) plane_id = 0;
         break;
 
     case 's': //Switches between face normals and vertices normals
@@ -750,6 +552,7 @@ void mouse (int button, int state, int x, int y) {
             }
         }
     }
+
     idle ();
 }
 
@@ -784,7 +587,7 @@ int main (int argc, char ** argv) {
     glutInit (&argc, argv);
     glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize (SCREENWIDTH, SCREENHEIGHT);
-    window = glutCreateWindow ("TP HAI714I");
+    window = glutCreateWindow ("TP HAI702I");
 
     init ();
     glutIdleFunc (idle);
@@ -795,79 +598,25 @@ int main (int argc, char ** argv) {
     glutMouseFunc (mouse);
     key ('?', 0, 0);
 
-    //Unit sphere mesh loaded with precomputed normals
-    openOFF("data/elephant_n.off", mesh.vertices, mesh.normals, mesh.triangles);
+    //Mesh loaded with precomputed normals
+    openOFF("data/elephant_n.off", mesh.vertices, mesh.normals, mesh.triangles, mesh.triangle_normals);
 
+    //Completer les fonction de calcul de normals
     mesh.computeNormals();
 
     basis = Basis();
 
-    srand(time(NULL));
-    Mat3 scale (2, 0., 0.,
-                0.0, 0.5, 0.,
-                0.0, 0., 1.);
-    mesh_transformation.rotation = Mat3::RandRotation()*scale;
-
-    mesh_transformation.translation = Vec3( -1.0 + 2.0 * ((double)(rand()) / (double)(RAND_MAX)),-1.0 + 2.0 * ((double)(rand()) / (double)(RAND_MAX)),-1.0 + 2.0 * ((double)(rand()) / (double)(RAND_MAX)) );
-
-    normal_transformation = Mat3::inverse(mesh_transformation.rotation);
-    normal_transformation.transpose();
-
-    transformed_basis = Basis( mesh_transformation.translation,
-                               mesh_transformation.rotation * basis.i,
-                               mesh_transformation.rotation * basis.j,
-                               mesh_transformation.rotation * basis.k );//Not normalized vectors
+    //A faire : Appliquer une matrice de transformation aux points
+    mesh_transformation.rotation = Mat3::Identity();
+    mesh_transformation.translation = Vec3( 1., 0., 0. );
 
     for( unsigned int i = 0 ; i < mesh.vertices.size() ; ++i ) {
-        transformed_mesh.vertices.push_back( mesh_transformation.rotation * mesh.vertices[i] + mesh_transformation.translation );
-        Vec3 normal = normal_transformation * mesh.normals[i];
-        normal.normalize();
-        transformed_mesh.normals.push_back( normal );
+        transformed_mesh.vertices.push_back( mesh.vertices[i] + mesh_transformation.translation );
     }
 
-    for( unsigned int i = 0 ; i < mesh.triangles.size() ; ++i ) {
-        Vec3 normal = normal_transformation * mesh.triangle_normals[i];
-        normal.normalize();
-        transformed_mesh.triangle_normals.push_back( normal );
-    }
-
+    transformed_mesh.normals = mesh.normals;
     transformed_mesh.triangles = mesh.triangles;
-
-    for( unsigned int i = 0 ; i < 3 ; i++ ){
-        project(mesh.vertices, projection_on_basis[i].positions, basis.origin, basis[i]);
-    }
-
-
-    for( unsigned int i = 0 ; i < 3 ; i++ ){
-        planes[i] = Plane(basis.origin, basis[i] );
-        transformed_planes[i].point = mesh_transformation.rotation*planes[i].point + mesh_transformation.translation;
-        transformed_planes[i].normal = normal_transformation*planes[i].normal ;
-        transformed_planes[i].normal.normalize();
-
-        project(transformed_mesh.vertices, transformed_projection_on_basis[i].positions, transformed_basis.origin, transformed_basis[i]/transformed_basis[i].length());
-    }
-
-    Vec3 bbmin, bbmax, center;
-    computeBBox(mesh.vertices, bbmin, bbmax );
-    Vec3 bboxCenter = (bbmin + bbmax) / 2.f;
-
-    setEllipsoide(ellipsoide, Basis( bboxCenter,
-                                     0.5*(bbmax[0] - bbmin[0])*basis.i,
-            0.5*(bbmax[1] - bbmin[1])*basis.j,
-            0.5*(bbmax[2] - bbmin[2])*basis.k));
-
-    for( unsigned int i = 0 ; i < ellipsoide.vertices.size() ; ++i ) {
-        transformed_ellipsoide.vertices.push_back( mesh_transformation.rotation*ellipsoide.vertices[i] + mesh_transformation.translation );
-
-        Vec3 normal = normal_transformation*ellipsoide.normals[i] ;
-        normal.normalize();
-
-        transformed_ellipsoide.normals.push_back( normal );
-    }
-
-    transformed_ellipsoide.triangles = ellipsoide.triangles;
-
-    transformed_ellipsoide.computeTrianglesNormals();
+    transformed_mesh.triangle_normals = mesh.triangle_normals;
 
     glutMainLoop ();
     return EXIT_SUCCESS;
