@@ -46,29 +46,34 @@ struct Triangle {
         v[0] = t.v[0];   v[1] = t.v[1];   v[2] = t.v[2];
         return (*this);
     }
-    // membres :
+    // membres indices des sommets du triangle:
     unsigned int v[3];
 };
 
 
 struct Mesh {
-    std::vector< Vec3 > vertices; //List of mesh vertices positions
-    std::vector< Vec3 > normals;
-    std::vector< Triangle > triangles;
-    std::vector< Vec3 > triangle_normals;
+    std::vector< Vec3 > vertices; //array of mesh vertices positions
+    std::vector< Vec3 > normals; //array of vertices normals useful for the display
+    std::vector< Triangle > triangles; //array of mesh triangles
+    std::vector< Vec3 > triangle_normals; //triangle normals to display face normals
 
+    //Compute face normals for the display
     void computeTrianglesNormals(){
 
         triangle_normals.clear();
+        //Iterate over mesh triangles
         for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
+            //Triangle i normal is the normalized cross product of two of its edges
             const Vec3 & e0 = vertices[triangles[i][1]] - vertices[triangles[i][0]];
             const Vec3 & e1 = vertices[triangles[i][2]] - vertices[triangles[i][0]];
+
             Vec3 n = Vec3::cross( e0, e1 );
             n.normalize();
             triangle_normals.push_back( n );
         }
     }
 
+    //Compute vertices normals as the average of its incident faces normals
     void computeVerticesNormals(){
 
         normals.clear();
@@ -88,11 +93,13 @@ struct Mesh {
     }
 };
 
+//Transformation made of a rotation and translation
 struct Transformation {
     Mat3 rotation;
     Vec3 translation;
 };
 
+//Basis ( origin, i, j ,k )
 struct Basis {
     inline Basis ( Vec3 const & i_origin,  Vec3 const & i_i, Vec3 const & i_j, Vec3 const & i_k) {
         origin = i_origin; i = i_i ; j = i_j ; k = i_k;
@@ -113,11 +120,13 @@ struct Basis {
     Vec3 k;
 };
 
+//Poinset data
 struct PointSet {
     std::vector< Vec3 > positions;
     std::vector< Vec3 > normals;
 };
 
+//Plane defined by a point and a normal
 struct Plane {
     inline Plane ( Vec3 const & i_point,  Vec3 const & i_normal ) {
         point = i_point; normal = i_normal;
@@ -131,7 +140,9 @@ struct Plane {
     Vec3 normal;
 };
 
+//Input mesh loaded at the launch of the application
 Mesh mesh;
+//Mesh on which a transformation is applied
 Mesh transformed_mesh;
 
 Mesh ellipsoide;
