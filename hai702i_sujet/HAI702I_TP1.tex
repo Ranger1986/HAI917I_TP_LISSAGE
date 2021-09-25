@@ -1,43 +1,23 @@
-\documentclass[a4paper,10pt]{article}
-\usepackage{fancyhdr}
-\usepackage[pdftex]{graphicx}
-%\usepackage{wrapfig}
-%\usepackage{xargs}
-\usepackage[utf8]{inputenc}
-%\usepackage[cyr]{aeguill}
-\usepackage[french]{babel}
+\documentclass[a4paper,10pt]{tp_um}
 
-\usepackage{listings}
 
-\usepackage{color}
+\input{header.tex}
 
-\pagestyle{fancy}
+\newcommand\code[1]{\mintinline{cpp}{#1}}
 
-\usepackage{url}
-
-\renewcommand\headheight{24pt}
-
-\topmargin -0.5in \textheight 9in \textwidth 7.5in
-\oddsidemargin -0.5in \evensidemargin -0.5in %\footskip -0.00in
-
-\lhead{HAI702I}
-\rhead{ }
-\lfoot{Université de Montpellier}
-\rfoot{Master 1 Informatique}
-
-\newcommand\code[1]{\lstinline[columns=fixed]{#1}}
+\title{\Large \sffamily\bfseries TP 1}
+\ue{HAI702I}
 
 \begin{document}
 
-\lstset{numbers=left, stepnumber=5, frame=single, basicstyle=\scriptsize, tabsize=2, showstringspaces=false}
-\begin{center}
-\LARGE{Algèbre, géométrie, transformation, calcul numérique}\\
-\vspace*{0.4cm}
-\normalsize{Travaux pratiques}
-\end{center}
+\maketitle
+
+\bigskip
+\bigskip
+\bigskip
 
 Au d\'ebut de ce TP/TD, vous recevrez une archive zip contenant une base de code.
-Ce code permet d'afficher un \emph{maillage triangulaire} \`a l'aide d'openGL.
+Ce code permet d'afficher un \emph{maillage triangulaire} \`a l'aide d'\texttt{openGL}.
 \begin{enumerate}
  \item Vous trouverez la description du code dans le sujet.
  \item Vous devez faire \'evoluer ce code au fur et \`a mesure du TP, pour r\'epondre aux questions.
@@ -47,7 +27,11 @@ Ce code permet d'afficher un \emph{maillage triangulaire} \`a l'aide d'openGL.
 
 \section{Base de code}
 
-T\'el\'echargez l'archive. Pour compiler le code la commande \code{make} et pour l'executer \code{./tp}.
+T\'el\'echargez l'archive sur le moodle \url{https://moodle.umontpellier.fr/course/view.php?id=22845}. Pour compiler le code et l'executer: 
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, breaklines]{bash}
+$ make
+$ ./tp
+\end{minted}
 
 %TODO Faire la description du code
 % \subsection{Rendu de maillages}
@@ -84,9 +68,9 @@ T\'el\'echargez l'archive. Pour compiler le code la commande \code{make} et pour
 
 \label{sec_exo_Vec3}
 
-Compléter la classe Vec3 qui contient les fonctions essentielles pour le calcul de base : assignation, somme, soustraction, multiplication et division par un scalaire, produit scalaire, produit vectoriel, norme,...
-\lstset{language=C++}
-\begin{lstlisting}
+Compléter la classe \code{Vec3} qui contient les fonctions essentielles pour le calcul de base : assignation, somme, soustraction, multiplication et division par un scalaire, produit scalaire, produit vectoriel, norme,...
+
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
     class Vec3 {
 private:
     float mVals[3];
@@ -132,7 +116,7 @@ public:
         mVals[2] /= s;
     }
 };
-\end{lstlisting}
+\end{minted}
 
 \begin{enumerate}
  \item Compléter les fonctions de calcul du produit scalaire \code{dot} et du produit vectoriel \code{cross}
@@ -165,18 +149,18 @@ par la ``règle de la main droite''.
 \item Pour tester vos calculs, completer les fonctions de calcul de normales aux faces triangulaires \code{computeTrianglesNormals()}. Les normales calculées seront celles du modèle vert. Vous pourrez comparer vos résultats avec les normales du maillage gris \code{transformed_mesh}. 
 \item Calculez ensuite les normales par sommet en faisant la moyenne des normales des triangles incidents. N'oubliez pas de normaliser.
 \item Remplacer 
-\begin{lstlisting}
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
     for( unsigned int i = 0 ; i < mesh.vertices.size() ; ++i ) {
         transformed_mesh.vertices.push_back( mesh.vertices[i] + mesh_transformation.translation );
     }
-\end{lstlisting}
+\end{minted}
 par 
-\begin{lstlisting}
+\begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
     for( unsigned int i = 0 ; i < mesh.vertices.size() ; ++i ) {
         transformed_mesh.vertices.push_back( mesh_transformation.rotation*mesh.vertices[i] 
         + mesh_transformation.translation );
     }
-\end{lstlisting}
+\end{minted}
 
 \item Essayer differentes transformation en mettant à jour  \code{mesh_transformation.rotation} et \code{mesh_transformation.translation}. 
 Créer une matrice \code{scale} de mise à l'échelle non-uniforme et essayer \code{mesh_transformation.rotation = mesh_transformation.rotation*scale}. Regarder les normales, que constatez-vous ?
