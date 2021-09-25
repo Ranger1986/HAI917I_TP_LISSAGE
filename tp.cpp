@@ -52,9 +52,40 @@ struct Triangle {
 
 
 struct Mesh {
-    std::vector< Vec3 > vertices;
+    std::vector< Vec3 > vertices; //List of mesh vertices positions
     std::vector< Vec3 > normals;
     std::vector< Triangle > triangles;
+    std::vector< Vec3 > triangle_normals;
+
+    void computeTrianglesNormals(){
+
+        triangle_normals.clear();
+        for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
+            const Vec3 & e0 = vertices[triangles[i][1]] - vertices[triangles[i][0]];
+            const Vec3 & e1 = vertices[triangles[i][2]] - vertices[triangles[i][0]];
+            Vec3 n = Vec3::cross( e0, e1 );
+            n.normalize();
+            triangle_normals.push_back( n );
+        }
+    }
+
+    void computeVerticesNormals(){
+
+        normals.clear();
+        normals.resize( vertices.size(), Vec3(0., 0., 0.) );
+        for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
+            for( unsigned int t = 0 ; t < 3 ; t++ )
+                normals[ triangles[i][t] ] += triangle_normals[i];
+        }
+        for( unsigned int i = 0 ; i < vertices.size() ;i++ )
+            normals[ i ].normalize();
+
+    }
+
+    void computeNormals(){
+        computeTrianglesNormals();
+        computeVerticesNormals();
+    }
 };
 
 struct Transformation {
@@ -121,6 +152,7 @@ Plane transformed_planes[3];
 unsigned int plane_id;
 
 bool display_normals;
+bool display_smooth_normals;
 bool display_mesh;
 bool display_transformed_mesh;
 bool display_ellipsoide;
@@ -167,7 +199,12 @@ void project( std::vector<Vec3> const & i_points, std::vector<Vec3> & o_points, 
     for( unsigned int i = 0 ; i < i_points.size() ; i++ )
         o_points.push_back( project( i_points[i], i_plane ) );
 }
+// ------------------------------------
 
+
+// ------------------------------------
+// File I/O
+// ------------------------------------
 bool saveOFF( const std::string & filename ,
               std::vector< Vec3 > & i_vertices ,
               std::vector< Vec3 > & i_normals ,
@@ -273,6 +310,8 @@ void openOFF( std::string const & filename,
 
 }
 
+// ------------------------------------
+
 void computeBBox( std::vector< Vec3 > const & i_positions, Vec3 & bboxMin, Vec3 & bboxMax ) {
     bboxMin = Vec3 ( FLT_MAX , FLT_MAX , FLT_MAX );
     bboxMax = Vec3 ( FLT_MIN , FLT_MIN , FLT_MIN );
@@ -323,10 +362,13 @@ void setEllipsoide( Mesh & o_mesh, Basis i_basis, int nX=20, int nY=20 )
         }
     }
 
+
+    ellipsoide.computeTrianglesNormals();
 }
 
 // ------------------------------------
-
+// Application initialization
+// ------------------------------------
 void initLight () {
     GLfloat light_position1[4] = {22.0f, 16.0f, 50.0f, 0.0f};
     GLfloat direction1[3] = {-52.0f,-16.0f,-50.0f};
@@ -357,18 +399,15 @@ void init () {
     display_mesh = true;
     display_transformed_mesh = true;
     display_plane = false;
+    display_smooth_normals = true;
 
     plane_id = 0;
 }
 
 
-
-
 // ------------------------------------
-// rendering.
+// Rendering.
 // ------------------------------------
-
-
 
 void drawPointSet( std::vector< Vec3 > const & i_positions  ) {
     glDisable(GL_LIGHTING);
@@ -394,8 +433,6 @@ void drawAxis( Vec3 const & i_origin, Vec3 const & i_direction ) {
     glLineWidth(4); // for example...
     drawVector(i_origin, i_origin + i_direction);
 }
-
-
 
 void drawReferenceFrame( Vec3 const & origin, Vec3 const & i, Vec3 const & j, Vec3 const & k ) {
 
@@ -442,7 +479,7 @@ void drawPlane( Plane const & i_plane ) {
     drawAxis( i_plane.point, to );
 }
 
-void drawTriangleMesh( Mesh const & i_mesh ) {
+void drawSmoothTriangleMesh( Mesh const & i_mesh ) {
     glBegin(GL_TRIANGLES);
     for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
         Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]];
@@ -463,24 +500,72 @@ void drawTriangleMesh( Mesh const & i_mesh ) {
     }
     glEnd();
 
-    if(display_normals){
-        glLineWidth(1.);
-        glColor3f(1.,0.,0.);
-        for(unsigned int pIt = 0 ; pIt < i_mesh.normals.size() ; ++pIt) {
-            Vec3 to = i_mesh.vertices[pIt] + 0.02*i_mesh.normals[pIt];
-            drawVector(i_mesh.vertices[pIt], to);
-        }
+}
 
+void drawTriangleMesh( Mesh const & i_mesh ) {
+    glBegin(GL_TRIANGLES);
+    for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
+        Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]];
+        Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
+        Vec3 p2 = i_mesh.vertices[i_mesh.triangles[tIt][2]];
+
+        Vec3 n = i_mesh.triangle_normals[tIt];
+
+        glNormal3f( n[0] , n[1] , n[2] );
+
+        glVertex3f( p0[0] , p0[1] , p0[2] );
+        glVertex3f( p1[0] , p1[1] , p1[2] );
+        glVertex3f( p2[0] , p2[1] , p2[2] );
     }
+    glEnd();
 
 }
 
+void drawMesh( Mesh const & i_mesh ){
+    if(display_smooth_normals)
+        drawSmoothTriangleMesh(i_mesh) ;
+    else {
+        drawTriangleMesh(i_mesh) ;
+    }
+}
 
+void drawVectorField( std::vector<Vec3> const & i_positions, std::vector<Vec3> const & i_directions ) {
+    glLineWidth(1.);
+    for(unsigned int pIt = 0 ; pIt < i_directions.size() ; ++pIt) {
+        Vec3 to = i_positions[pIt] + 0.02*i_directions[pIt];
+        drawVector(i_positions[pIt], to);
+    }
+}
+
+void drawNormals(Mesh const& i_mesh){
+
+    if(display_smooth_normals){
+        drawVectorField( i_mesh.vertices, i_mesh.normals );
+    } else {
+        std::vector<Vec3> triangle_baricenters;
+        for ( const Triangle& triangle : i_mesh.triangles ){
+            Vec3 triangle_baricenter (0.,0.,0.);
+            for( unsigned int i = 0 ; i < 3 ; i++ )
+                triangle_baricenter += i_mesh.vertices[triangle[i]];
+            triangle_baricenter /= 3;
+            triangle_baricenters.push_back(triangle_baricenter);
+        }
+
+        drawVectorField( triangle_baricenters, i_mesh.triangle_normals );
+    }
+}
+
+//Draw fonction
 void draw () {
 
     if( display_mesh ){
         glColor3f(0.8,1,0.8);
-        drawTriangleMesh(mesh);
+        drawMesh(mesh);
+
+        if(display_normals){
+            glColor3f(1.,0.,0.);
+            drawNormals(mesh);
+        }
 
         if( display_basis ){
             drawReferenceFrame(basis);
@@ -504,13 +589,18 @@ void draw () {
 
         if( display_ellipsoide ){
             glColor3f(0.39,0.57,0.67);
-            drawTriangleMesh(ellipsoide);
+            drawMesh(ellipsoide);
         }
     }
 
     if( display_transformed_mesh ){
         glColor3f(0.8,0.8,1);
-        drawTriangleMesh(transformed_mesh);
+        drawMesh(transformed_mesh);
+
+        if(display_normals){
+            glColor3f(1.,0.,0.);
+            drawNormals(transformed_mesh);
+        }
 
         if( display_basis ){
 
@@ -535,14 +625,13 @@ void draw () {
 
         if( display_ellipsoide ){
             glColor3f(0.39,0.57,0.67);
-            drawTriangleMesh(transformed_ellipsoide);
+            drawMesh(transformed_ellipsoide);
         }
     }
 
 
 
 }
-
 
 void display () {
     glLoadIdentity ();
@@ -557,6 +646,10 @@ void idle () {
     glutPostRedisplay ();
 }
 
+// ------------------------------------
+// User inputs
+// ------------------------------------
+//Keyboard event
 void key (unsigned char keyPressed, int x, int y) {
     switch (keyPressed) {
     case 'f':
@@ -609,12 +702,17 @@ void key (unsigned char keyPressed, int x, int y) {
         if( plane_id > 2 ) plane_id = 0;
         break;
 
+    case 's': //Switches between face normals and vertices normals
+        display_smooth_normals = !display_smooth_normals;
+        break;
+
     default:
         break;
     }
     idle ();
 }
 
+//Mouse events
 void mouse (int button, int state, int x, int y) {
     if (state == GLUT_UP) {
         mouseMovePressed = false;
@@ -644,6 +742,7 @@ void mouse (int button, int state, int x, int y) {
     idle ();
 }
 
+//Mouse motion, update camera
 void motion (int x, int y) {
     if (mouseRotatePressed == true) {
         camera.rotate (x, y);
@@ -664,8 +763,9 @@ void reshape(int w, int h) {
     camera.resize (w, h);
 }
 
-
-
+// ------------------------------------
+// Start of graphical application
+// ------------------------------------
 int main (int argc, char ** argv) {
     if (argc > 2) {
         exit (EXIT_FAILURE);
@@ -686,6 +786,8 @@ int main (int argc, char ** argv) {
 
     //Unit sphere mesh loaded with precomputed normals
     openOFF("data/elephant_n.off", mesh.vertices, mesh.normals, mesh.triangles);
+
+    mesh.computeNormals();
 
     basis = Basis();
 
@@ -710,6 +812,12 @@ int main (int argc, char ** argv) {
         Vec3 normal = normal_transformation * mesh.normals[i];
         normal.normalize();
         transformed_mesh.normals.push_back( normal );
+    }
+
+    for( unsigned int i = 0 ; i < mesh.triangles.size() ; ++i ) {
+        Vec3 normal = normal_transformation * mesh.triangle_normals[i];
+        normal.normalize();
+        transformed_mesh.triangle_normals.push_back( normal );
     }
 
     transformed_mesh.triangles = mesh.triangles;
@@ -747,6 +855,8 @@ int main (int argc, char ** argv) {
     }
 
     transformed_ellipsoide.triangles = ellipsoide.triangles;
+
+    transformed_ellipsoide.computeTrianglesNormals();
 
     glutMainLoop ();
     return EXIT_SUCCESS;
