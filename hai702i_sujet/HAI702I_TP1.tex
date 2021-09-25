@@ -27,7 +27,7 @@ Ce code permet d'afficher un \emph{maillage triangulaire} \`a l'aide d'\texttt{o
 
 \section{Base de code}
 
-T\'el\'echargez l'archive sur le moodle \url{https://moodle.umontpellier.fr/course/view.php?id=22845}. Pour compiler le code et l'executer: 
+T\'el\'echargez l'archive sur le moodle \url{https://moodle.umontpellier.fr/course/view.php?id=22845}. Pour compiler le code et l'exécuter: 
 \begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, breaklines]{bash}
 $ make
 $ ./tp
@@ -68,7 +68,7 @@ $ ./tp
 
 \label{sec_exo_Vec3}
 
-Compléter la classe \code{Vec3} qui contient les fonctions essentielles pour le calcul de base : assignation, somme, soustraction, multiplication et division par un scalaire, produit scalaire, produit vectoriel, norme,...
+Compléter la classe \code{Vec3} qui contient les fonctions essentielles pour le calcul de base : assignation, somme, soustraction, multiplication et division par un scalaire, produit scalaire, produit vectoriel, norme,\ldots
 
 \begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
     class Vec3 {
@@ -121,32 +121,33 @@ public:
 \begin{enumerate}
  \item Compléter les fonctions de calcul du produit scalaire \code{dot} et du produit vectoriel \code{cross}
 \item Compléter la fonctions de \code{Mat3} permettant d'effectuer un produit matriciel
-\item Compléter la fonction de \code{Mat3} permettant d'effectuer la multiplication d'appliqquer une matrice de transformation à un point : \code{Mat3*Vec3}.
+\item Compléter la fonction de \code{Mat3} permettant d'effectuer la multiplication d'appliquer une matrice de transformation à un point : \code{Mat3*Vec3}.
 \end{enumerate}
 
 
-\paragraph{Remarques}
-\begin{enumerate}
- \item On a revu les notions associées au produit scalaire, notamment :
-\begin{itemize}
- \item Le produit scalaire entre le vecteur $\mathbf{a}$ et le vecteur $\mathbf{b}$ donne le produit des longueurs multiplié par le cosinus de
-l’angle formé par ces vecteurs.
-\item Le produit scalaire entre un vecteur $\mathbf{a}$ et un vecteur unitaire $\mathbf{d}$ vaut la longueur (attention au signe !) de $\mathbf{a}$ projeté
-sur la (demi-)droite dirigée par $\mathbf{d}$.
-\end{itemize}
+\begin{remark}
+    \begin{enumerate}
+        \item On a revu les notions associées au produit scalaire, notamment :
+            \begin{itemize}
+                \item Le produit scalaire entre le vecteur $\mathbf{a}$ et le vecteur $\mathbf{b}$ donne le produit des longueurs multiplié par le cosinus de
+                    l’angle formé par ces vecteurs.
+                \item Le produit scalaire entre un vecteur $\mathbf{a}$ et un vecteur unitaire $\mathbf{d}$ vaut la longueur (attention au signe !) de $\mathbf{a}$ projeté
+                    sur la (demi-)droite dirigée par $\mathbf{d}$.
+            \end{itemize}
 
-\item On a revu les notions associées au produit vectoriel, notamment :
-\begin{itemize}
- \item Le produit vectoriel entre le vecteur $\mathbf{a}$ et le vecteur $\mathbf{b}$ est orthognal à ces deux vecteurs (et sa direction est donnée
-par la ``règle de la main droite''.
-\item Sa norme vaut le produit des longueurs multiplié par le sinus de l’angle formé par ces vecteurs.
-\end{itemize}
-\end{enumerate}
+        \item On a revu les notions associées au produit vectoriel, notamment :
+            \begin{itemize}
+                \item Le produit vectoriel entre le vecteur $\mathbf{a}$ et le vecteur $\mathbf{b}$ est orthognal à ces deux vecteurs (et sa direction est donnée
+                        par la ``règle de la main droite''.
+                    \item Sa norme vaut le produit des longueurs multiplié par le sinus de l’angle formé par ces vecteurs.
+                \end{itemize}
+        \end{enumerate}
+    \end{remark}
 
 \section{Application}
 
 \begin{enumerate}
-\item Pour tester vos calculs, completer les fonctions de calcul de normales aux faces triangulaires \code{computeTrianglesNormals()}. Les normales calculées seront celles du modèle vert. Vous pourrez comparer vos résultats avec les normales du maillage gris \code{transformed_mesh}. 
+\item Pour tester vos calculs, compléter les fonctions de calcul de normales aux faces triangulaires \code{computeTrianglesNormals()}. Les normales calculées seront celles du modèle vert. Vous pourrez comparer vos résultats avec les normales du maillage gris \code{transformed_mesh}. 
 \item Calculez ensuite les normales par sommet en faisant la moyenne des normales des triangles incidents. N'oubliez pas de normaliser.
 \item Remplacer 
 \begin{minted}[bgcolor=blue!4,fontsize=\footnotesize,mathescape,tabsize=4,escapeinside=||, linenos, breaklines]{cpp}
@@ -163,9 +164,10 @@ par
 \end{minted}
 
 \item Essayer differentes transformation en mettant à jour  \code{mesh_transformation.rotation} et \code{mesh_transformation.translation}. 
-Créer une matrice \code{scale} de mise à l'échelle non-uniforme et essayer \code{mesh_transformation.rotation = mesh_transformation.rotation*scale}. Regarder les normales, que constatez-vous ?
+Créer une matrice \code{scale} de mise à l'échelle non-uniforme et essayer \code{mesh_transformation.rotation = mesh_transformation.rotation*scale}. Regarder les normales, que constatez vous?
 
 \end{enumerate}
+
 %\section{La STL (Standard Template Library)}
 
 
