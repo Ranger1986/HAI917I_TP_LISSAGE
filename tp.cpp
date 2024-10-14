@@ -58,10 +58,14 @@ void collect_one_ring (std::vector<Vec3> const & i_vertices,
                        std::vector<std::vector<unsigned int> > & o_one_ring);
 struct Mesh {
     std::vector< Vec3 > vertices; //array of mesh vertices positions
+    std::vector< Vec3 > tempVertices; //array of mesh vertices positions
     std::vector< Vec3 > vunicurvature; 
     std::vector< Vec3 > normals; //array of vertices normals useful for the display
     std::vector< Triangle > triangles; //array of mesh triangles
     std::vector< Vec3 > triangle_normals; //triangle normals to display face normals
+    void applySmooth(){
+        vertices=tempVertices;
+    }
 
     //Compute face normals for the display
     void computeTrianglesNormals(){
@@ -136,12 +140,14 @@ struct Mesh {
         }
     }
     void uniform_smooth(unsigned int iters){
+        
+        tempVertices.resize(vertices.size());
         for (unsigned int i = 0; i < iters; i++)
         {
             calc_uniform_mean_curvature();
             for (size_t j = 0; j < vertices.size(); j++)
             {
-                vertices[j]+= (0.5)*vunicurvature[j];
+                tempVertices[j] = vertices[j]+ (0.5)*vunicurvature[j];
             }
         }
         this->computeNormals();
@@ -151,6 +157,21 @@ struct Mesh {
         {
             vertices[j]= Vec3(0,0,0);
         }
+    }
+    void taubinSmooth ( float lambda , float mu){
+        uniform_smooth(1);
+        for (size_t j = 0; j < vertices.size(); j++)
+        {
+            tempVertices[j] = vertices[j] + (lambda) * (vertices[j]-tempVertices[j]);
+        }
+        applySmooth();
+        uniform_smooth(1);
+        for (size_t j = 0; j < vertices.size(); j++)
+        {
+            tempVertices[j] = vertices[j] + (mu) * (vertices[j]-tempVertices[j]);
+        }
+        applySmooth();
+        this->computeNormals();
     }
     void addNoise(){
     for( unsigned int i = 0 ; i < vertices.size() ; i ++ )
@@ -634,14 +655,16 @@ void key (unsigned char keyPressed, int x, int y) {
     case '1': //Toggle loaded mesh display
         display_mesh = !display_mesh;
         break;
-    case 'c': //compute smooth
+    case 'l': //compute smooth
         mesh.uniform_smooth(5);
+        glutPostRedisplay();
+        break;
+    case 't': //compute smooth
+        mesh.taubinSmooth(0.330, -0.331);
         glutPostRedisplay();
         break;
     case 'd': //toggle debug
         debug = !debug;
-        break;
-    case 't': 
         break;
     // //fait planter le code
     // case 's': //Switches between face normals and vertices normals
