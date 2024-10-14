@@ -28,6 +28,8 @@
 #include "src/Vec3.h"
 #include "src/Camera.h"
 
+bool debug = true;
+
 enum DisplayMode{ WIRE=0, SOLID=1, LIGHTED_WIRE=2, LIGHTED=3 };
 
 struct Triangle {
@@ -51,9 +53,12 @@ struct Triangle {
     unsigned int v[3];
 };
 
-
+void collect_one_ring (std::vector<Vec3> const & i_vertices,
+                       std::vector< Triangle > const & i_triangles,
+                       std::vector<std::vector<unsigned int> > & o_one_ring);
 struct Mesh {
     std::vector< Vec3 > vertices; //array of mesh vertices positions
+    std::vector< Vec3 > vunicurvature; 
     std::vector< Vec3 > normals; //array of vertices normals useful for the display
     std::vector< Triangle > triangles; //array of mesh triangles
     std::vector< Vec3 > triangle_normals; //triangle normals to display face normals
@@ -111,8 +116,55 @@ struct Mesh {
         computeTrianglesNormals();
         computeVerticesNormals();
     }
-};
+    void calc_uniform_mean_curvature(){
+        vunicurvature.clear();
+        std::vector<std::vector<unsigned int>> oneRing;
+        collect_one_ring(vertices, triangles,oneRing);
+        for (size_t i = 0; i < oneRing.size(); i++)
+        {
+            Vec3 Lu = Vec3(0.f,0.f,0.f);
+            for (size_t j = 0; j < oneRing[i].size(); j++)
+            {
+                Lu+=vertices[oneRing[i][j]];
+            }
 
+            Lu/=oneRing[i].size();
+
+            Lu-=vertices[i];
+
+            vunicurvature.push_back(Lu);
+        }
+    }
+    void uniform_smooth(unsigned int iters){
+        for (unsigned int i = 0; i < iters; i++)
+        {
+            calc_uniform_mean_curvature();
+            for (size_t j = 0; j < vertices.size(); j++)
+            {
+                vertices[j]+= (0.5)*vunicurvature[j];
+            }
+        }
+        this->computeNormals();
+    }
+    void allVertexToZero(){
+        for (size_t j = 0; j < vertices.size(); j++)
+        {
+            vertices[j]= Vec3(0,0,0);
+        }
+    }
+    void addNoise(){
+    for( unsigned int i = 0 ; i < vertices.size() ; i ++ )
+        {
+            float factor = 0.03;
+            const Vec3 & p = vertices[i];
+            const Vec3 & n = normals[i];
+            vertices[i] = Vec3( p[0] + factor*((double)(rand()) / (double)
+                (RAND_MAX))*n[0], p[1] + factor*((double)(rand()) / (double)
+                (RAND_MAX))*n[1], p[2] + factor*((double)(rand()) / (double)
+                (RAND_MAX))*n[2]);
+        }
+    }
+};
 //Transformation made of a rotation and translation
 struct Transformation {
     Mat3 rotation;
@@ -582,6 +634,15 @@ void key (unsigned char keyPressed, int x, int y) {
     case '1': //Toggle loaded mesh display
         display_mesh = !display_mesh;
         break;
+    case 'c': //compute smooth
+        mesh.uniform_smooth(5);
+        glutPostRedisplay();
+        break;
+    case 'd': //toggle debug
+        debug = !debug;
+        break;
+    case 't': 
+        break;
     // //fait planter le code
     // case 's': //Switches between face normals and vertices normals
     //     display_smooth_normals = !display_smooth_normals;
@@ -676,6 +737,8 @@ int main (int argc, char ** argv) {
     openOFF("data/elephant_n.off", mesh.vertices, mesh.normals, mesh.triangles, mesh.triangle_normals);
 
     mesh.computeNormals();
+
+    mesh.addNoise();
 
 
     // A faire : normaliser les champs pour avoir une valeur flotante entre 0. et 1. dans current_field
