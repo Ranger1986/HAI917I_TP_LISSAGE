@@ -28,6 +28,7 @@
 #include "src/Vec3.h"
 #include "src/Camera.h"
 
+enum DisplayMode{ WIRE=0, SOLID=1, LIGHTED_WIRE=2, LIGHTED=3 };
 
 struct Triangle {
     inline Triangle () {
@@ -69,10 +70,20 @@ struct Mesh {
         //L'arete e_20 est représentée par le vecteur partant du sommet 0 (triangles[i][0]) au sommet 2 (triangles[i][2])
 
         //Normaliser et ajouter dans triangle_normales
+
+        triangle_normals.clear();
+        for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
+            const Vec3 & e0 = vertices[triangles[i][1]] - vertices[triangles[i][0]];
+            const Vec3 & e1 = vertices[triangles[i][2]] - vertices[triangles[i][0]];
+            Vec3 n = Vec3::cross( e0, e1 );
+            n.normalize();
+            triangle_normals.push_back( n );
+        }
     }
 
     //Compute vertices normals as the average of its incident faces normals
-    void computeVerticesNormals(){
+    void computeVerticesNormals(  ){
+        //Utiliser weight_type : 0 uniforme, 1 aire des triangles, 2 angle du triangle
 
         //A faire : implémenter le calcul des normales par sommet comme la moyenne des normales des triangles incidents
         //Attention commencer la fonction par normals.clear();
@@ -80,9 +91,18 @@ struct Mesh {
         //Iterer sur les triangles
 
         //Pour chaque triangle i
-        //Ajouter la normal au triangle à celle de chacun des sommets
+        //Ajouter la normal au triangle à celle de chacun des sommets en utilisant des poids
+        //0 uniforme, 1 aire du triangle, 2 angle du triangle
 
         //Iterer sur les normales et les normaliser
+        normals.clear();
+        normals.resize( vertices.size(), Vec3(0., 0., 0.) );
+        for( unsigned int i = 0 ; i < triangles.size() ;i++ ){
+            for( unsigned int t = 0 ; t < 3 ; t++ )
+                normals[ triangles[i][t] ] += triangle_normals[i];
+        }
+        for( unsigned int i = 0 ; i < vertices.size() ;i++ )
+            normals[ i ].normalize();
 
 
     }
@@ -99,43 +119,46 @@ struct Transformation {
     Vec3 translation;
 };
 
-//Basis ( origin, i, j ,k )
-struct Basis {
-    inline Basis ( Vec3 const & i_origin,  Vec3 const & i_i, Vec3 const & i_j, Vec3 const & i_k) {
-        origin = i_origin; i = i_i ; j = i_j ; k = i_k;
-    }
 
-    inline Basis ( ) {
-        origin = Vec3(0., 0., 0.);
-        i = Vec3(1., 0., 0.) ; j = Vec3(0., 1., 0.) ; k = Vec3(0., 0., 1.);
+bool contain(std::vector<unsigned int> const & i_vector, unsigned int element) {
+    for (unsigned int i = 0; i < i_vector.size(); i++) {
+        if (i_vector[i] == element) return true;
     }
-    Vec3 operator [] (unsigned int ib) {
-        if(ib==0) return i;
-        if(ib==1) return j;
-        return k;}
+    return false;
+}
 
-    Vec3 origin;
-    Vec3 i;
-    Vec3 j;
-    Vec3 k;
-};
+void collect_one_ring (std::vector<Vec3> const & i_vertices,
+                       std::vector< Triangle > const & i_triangles,
+                       std::vector<std::vector<unsigned int> > & o_one_ring) {
+    o_one_ring.clear();
+    o_one_ring.resize(i_vertices.size()); //one-ring of each vertex, i.e. a list of vertices with which it shares an edge
+    //Parcourir les triangles et ajouter les voisins dans le 1-voisinage
+    //Attention verifier que l'indice n'est pas deja present
+    for (unsigned int i = 0; i < i_triangles.size(); i++) {
+        //Tous les points opposés dans le triangle sont reliés
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 3; k++) {
+                if (j != k) {
+                    if (!contain(o_one_ring[i_triangles[i][j]], i_triangles[i][k])) {
+                        o_one_ring[i_triangles[i][j]].push_back(i_triangles[i][k]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 //Input mesh loaded at the launch of the application
 Mesh mesh;
-//Mesh on which a transformation is applied
-Mesh transformed_mesh;
-
-Transformation mesh_transformation;
-Mat3 normal_transformation;
-
-Basis basis;
-Basis transformed_basis;
+std::vector< float > current_field; //normalized filed of each vertex
 
 bool display_normals;
 bool display_smooth_normals;
 bool display_mesh;
-bool display_transformed_mesh;
-bool display_basis;
+
+DisplayMode displayMode;
+int weight_type;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -155,11 +178,11 @@ static bool fullScreen = false;
 // File I/O
 // ------------------------------------
 bool saveOFF( const std::string & filename ,
-              std::vector< Vec3 > & i_vertices ,
-              std::vector< Vec3 > & i_normals ,
-              std::vector< Triangle > & i_triangles,
-              std::vector< Vec3 > & i_triangle_normals ,
-              bool save_normals = true ) {
+              std::vector< Vec3 > const & i_vertices ,
+              std::vector< Vec3 > const & i_normals ,
+              std::vector< Triangle > const & i_triangles,
+              std::vector< Vec3 > const & i_triangle_normals ,
+              bool save_normals = false ) {
     std::ofstream myfile;
     myfile.open(filename.c_str());
     if (!myfile.is_open()) {
@@ -306,8 +329,9 @@ void init () {
 
     display_normals = false;
     display_mesh = true;
-    display_transformed_mesh = true;
     display_smooth_normals = true;
+    displayMode = LIGHTED;
+
 }
 
 
@@ -342,58 +366,91 @@ void drawReferenceFrame( Vec3 const & origin, Vec3 const & i, Vec3 const & j, Ve
 
 }
 
-void drawReferenceFrame( Basis & i_basis ) {
-    drawReferenceFrame( i_basis.origin, i_basis.i, i_basis.j, i_basis.k );
-}
 
-void drawSmoothTriangleMesh( Mesh const & i_mesh ) {
-    glBegin(GL_TRIANGLES);
-    for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
-        Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]]; //Vertex position
-        Vec3 n0 = i_mesh.normals[i_mesh.triangles[tIt][0]]; //Vertex normal
+typedef struct {
+    float r;       // ∈ [0, 1]
+    float g;       // ∈ [0, 1]
+    float b;       // ∈ [0, 1]
+} RGB;
 
-        Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
-        Vec3 n1 = i_mesh.normals[i_mesh.triangles[tIt][1]];
 
-        Vec3 p2 = i_mesh.vertices[i_mesh.triangles[tIt][2]];
-        Vec3 n2 = i_mesh.normals[i_mesh.triangles[tIt][2]];
 
-        glNormal3f( n0[0] , n0[1] , n0[2] );
-        glVertex3f( p0[0] , p0[1] , p0[2] );
-        glNormal3f( n1[0] , n1[1] , n1[2] );
-        glVertex3f( p1[0] , p1[1] , p1[2] );
-        glNormal3f( n2[0] , n2[1] , n2[2] );
-        glVertex3f( p2[0] , p2[1] , p2[2] );
-    }
-    glEnd();
+RGB scalarToRGB( float scalar_value ) //Scalar_value ∈ [0, 1]
+{
+    RGB rgb;
+    float H = scalar_value*360., S = 1., V = 0.85,
+            P, Q, T,
+            fract;
 
-}
+    (H == 360.)?(H = 0.):(H /= 60.);
+    fract = H - floor(H);
 
-void drawTriangleMesh( Mesh const & i_mesh ) {
-    glBegin(GL_TRIANGLES);
-    for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
-        Vec3 p0 = i_mesh.vertices[i_mesh.triangles[tIt][0]];
-        Vec3 p1 = i_mesh.vertices[i_mesh.triangles[tIt][1]];
-        Vec3 p2 = i_mesh.vertices[i_mesh.triangles[tIt][2]];
+    P = V*(1. - S);
+    Q = V*(1. - S*fract);
+    T = V*(1. - S*(1. - fract));
 
-        //Face normal
-        Vec3 n = i_mesh.triangle_normals[tIt];
-
-        glNormal3f( n[0] , n[1] , n[2] );
-
-        glVertex3f( p0[0] , p0[1] , p0[2] );
-        glVertex3f( p1[0] , p1[1] , p1[2] );
-        glVertex3f( p2[0] , p2[1] , p2[2] );
-    }
-    glEnd();
-
-}
-
-void drawMesh( Mesh const & i_mesh ){
-    if(display_smooth_normals)
-        drawSmoothTriangleMesh(i_mesh) ; //Smooth display with vertices normals
+    if      (0. <= H && H < 1.)
+        rgb = (RGB){.r = V, .g = T, .b = P};
+    else if (1. <= H && H < 2.)
+        rgb = (RGB){.r = Q, .g = V, .b = P};
+    else if (2. <= H && H < 3.)
+        rgb = (RGB){.r = P, .g = V, .b = T};
+    else if (3. <= H && H < 4.)
+        rgb = (RGB){.r = P, .g = Q, .b = V};
+    else if (4. <= H && H < 5.)
+        rgb = (RGB){.r = T, .g = P, .b = V};
+    else if (5. <= H && H < 6.)
+        rgb = (RGB){.r = V, .g = P, .b = Q};
     else
-        drawTriangleMesh(i_mesh) ; //Display with face normals
+        rgb = (RGB){.r = 0., .g = 0., .b = 0.};
+
+    return rgb;
+}
+
+void drawSmoothTriangleMesh( Mesh const & i_mesh , bool draw_field = false ) {
+    glBegin(GL_TRIANGLES);
+    for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
+
+        for(unsigned int i = 0 ; i < 3 ; i++) {
+            const Vec3 & p = i_mesh.vertices[i_mesh.triangles[tIt][i]]; //Vertex position
+            const Vec3 & n = i_mesh.normals[i_mesh.triangles[tIt][i]]; //Vertex normal
+
+            if( draw_field && current_field.size() > 0 ){
+                RGB color = scalarToRGB( current_field[i_mesh.triangles[tIt][i]] );
+                glColor3f( color.r, color.g, color.b );
+            }
+            glNormal3f( n[0] , n[1] , n[2] );
+            glVertex3f( p[0] , p[1] , p[2] );
+        }
+    }
+    glEnd();
+
+}
+
+void drawTriangleMesh( Mesh const & i_mesh , bool draw_field = false  ) {
+    glBegin(GL_TRIANGLES);
+    for(unsigned int tIt = 0 ; tIt < i_mesh.triangles.size(); ++tIt) {
+        const Vec3 & n = i_mesh.triangle_normals[ tIt ]; //Triangle normal
+        for(unsigned int i = 0 ; i < 3 ; i++) {
+            const Vec3 & p = i_mesh.vertices[i_mesh.triangles[tIt][i]]; //Vertex position
+
+            if( draw_field ){
+                RGB color = scalarToRGB( current_field[i_mesh.triangles[tIt][i]] );
+                glColor3f( color.r, color.g, color.b );
+            }
+            glNormal3f( n[0] , n[1] , n[2] );
+            glVertex3f( p[0] , p[1] , p[2] );
+        }
+    }
+    glEnd();
+
+}
+
+void drawMesh( Mesh const & i_mesh , bool draw_field = false ){
+    if(display_smooth_normals)
+        drawSmoothTriangleMesh(i_mesh, draw_field) ; //Smooth display with vertices normals
+    else
+        drawTriangleMesh(i_mesh, draw_field) ; //Display with face normals
 }
 
 void drawVectorField( std::vector<Vec3> const & i_positions, std::vector<Vec3> const & i_directions ) {
@@ -425,38 +482,62 @@ void drawNormals(Mesh const& i_mesh){
 //Draw fonction
 void draw () {
 
-    if( display_mesh ){
-        glColor3f(0.8,1,0.8);
-        drawMesh(mesh);
 
-        glDisable(GL_LIGHTING);
-        if(display_normals){
-            glColor3f(1.,0.,0.);
-            drawNormals(mesh);
-        }
 
-        if( display_basis ){
-            drawReferenceFrame(basis);
-        }
+    if(displayMode == LIGHTED || displayMode == LIGHTED_WIRE){
+
+        glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
         glEnable(GL_LIGHTING);
+
+    }  else if(displayMode == WIRE){
+
+        glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+        glDisable (GL_LIGHTING);
+
+    }  else if(displayMode == SOLID ){
+        glDisable (GL_LIGHTING);
+        glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
+
     }
 
-    if( display_transformed_mesh ){
-        glColor3f(0.8,0.8,1);
-        drawMesh(transformed_mesh);
+    glColor3f(0.8,1,0.8);
+    drawMesh(mesh, true);
 
-        glDisable(GL_LIGHTING);
-        if(display_normals){
-            glColor3f(1.,0.,0.);
-            drawNormals(transformed_mesh);
-        }
+    if(displayMode == SOLID || displayMode == LIGHTED_WIRE){
+        glEnable (GL_POLYGON_OFFSET_LINE);
+        glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+        glLineWidth (1.0f);
+        glPolygonOffset (-2.0, 1.0);
 
-        if( display_basis ){
-            drawReferenceFrame(transformed_basis);
-        }
-        glEnable(GL_LIGHTING);
+        glColor3f(0.,0.,0.);
+        drawMesh(mesh, false);
+
+        glDisable (GL_POLYGON_OFFSET_LINE);
+        glEnable (GL_LIGHTING);
     }
 
+
+
+    glDisable(GL_LIGHTING);
+    if(display_normals){
+        glColor3f(1.,0.,0.);
+        drawNormals(mesh);
+    }
+
+    glEnable(GL_LIGHTING);
+
+
+}
+
+void changeDisplayMode(){
+    if(displayMode == LIGHTED)
+        displayMode = LIGHTED_WIRE;
+    else if(displayMode == LIGHTED_WIRE)
+        displayMode = SOLID;
+    else if(displayMode == SOLID)
+        displayMode = WIRE;
+    else
+        displayMode = LIGHTED;
 }
 
 void display () {
@@ -490,18 +571,9 @@ void key (unsigned char keyPressed, int x, int y) {
 
 
     case 'w':
-        GLint polygonMode[2];
-        glGetIntegerv(GL_POLYGON_MODE, polygonMode);
-        if(polygonMode[0] != GL_FILL)
-            glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
-        else
-            glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+        changeDisplayMode();
         break;
 
-
-    case 'b': //Toggle basis display
-        display_basis = !display_basis;
-        break;
 
     case 'n': //Press n key to display normals
         display_normals = !display_normals;
@@ -511,12 +583,14 @@ void key (unsigned char keyPressed, int x, int y) {
         display_mesh = !display_mesh;
         break;
 
-    case '2': //Toggle transformed mesh display
-        display_transformed_mesh = !display_transformed_mesh;
-        break;
-
     case 's': //Switches between face normals and vertices normals
         display_smooth_normals = !display_smooth_normals;
+        break;
+
+    case '+': //Changes weight type: 0 uniforme, 1 aire des triangles, 2 angle du triangle
+        weight_type ++;
+        if(weight_type == 3) weight_type = 0;
+        mesh.computeVerticesNormals(); //recalcul des normales avec le type de poids choisi
         break;
 
     default:
@@ -587,7 +661,7 @@ int main (int argc, char ** argv) {
     glutInit (&argc, argv);
     glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize (SCREENWIDTH, SCREENHEIGHT);
-    window = glutCreateWindow ("TP HAI702I");
+    window = glutCreateWindow ("TP HAI917I");
 
     init ();
     glutIdleFunc (idle);
@@ -601,22 +675,13 @@ int main (int argc, char ** argv) {
     //Mesh loaded with precomputed normals
     openOFF("data/elephant_n.off", mesh.vertices, mesh.normals, mesh.triangles, mesh.triangle_normals);
 
-    //Completer les fonction de calcul de normals
     mesh.computeNormals();
 
-    basis = Basis();
 
-    //A faire : Appliquer une matrice de transformation aux points
-    mesh_transformation.rotation = Mat3::Identity();
-    mesh_transformation.translation = Vec3( 1., 0., 0. );
+    // A faire : normaliser les champs pour avoir une valeur flotante entre 0. et 1. dans current_field
+    //***********************************************//
 
-    for( unsigned int i = 0 ; i < mesh.vertices.size() ; ++i ) {
-        transformed_mesh.vertices.push_back( mesh.vertices[i] + mesh_transformation.translation );
-    }
-
-    transformed_mesh.normals = mesh.normals;
-    transformed_mesh.triangles = mesh.triangles;
-    transformed_mesh.triangle_normals = mesh.triangle_normals;
+    current_field.clear();
 
     glutMainLoop ();
     return EXIT_SUCCESS;

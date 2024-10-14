@@ -28,12 +28,12 @@ public:
     float length() const { return sqrt( squareLength() ); }
     void normalize() { float L = length(); mVals[0] /= L; mVals[1] /= L; mVals[2] /= L; }
     static float dot( Vec3 const & a , Vec3 const & b ) {
-       //Fonction à compléter
-        return rand(); //A remplacer par le résultat du produit scalaire
+       return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
     }
     static Vec3 cross( Vec3 const & a , Vec3 const & b ) {
-       //Fonction à compléter
-        return Vec3(); //A remplacer par le résultat du produit vectoriel
+       return Vec3( a[1]*b[2] - a[2]*b[1] ,
+                    a[2]*b[0] - a[0]*b[2] ,
+                    a[0]*b[1] - a[1]*b[0] );
     }
     void operator += (Vec3 const & other) {
         mVals[0] += other[0];
@@ -54,6 +54,20 @@ public:
         mVals[0] /= s;
         mVals[1] /= s;
         mVals[2] /= s;
+    }
+
+    static Vec3 Rand(float magnitude = 1.f) {
+        return Vec3( magnitude * (-1.f + 2.f * rand() / (float)(RAND_MAX)) , magnitude * (-1.f + 2.f * rand() / (float)(RAND_MAX)) , magnitude * (-1.f + 2.f * rand() / (float)(RAND_MAX)) );
+    }
+
+    Vec3 getOrthogonal() const {
+        if( mVals[0] == 0 ) {
+            return Vec3( 0 , mVals[2] , -mVals[1] );
+        }
+        else if( mVals[1] == 0 ) {
+            return Vec3( mVals[2] , 0 , -mVals[0] );
+        }
+        return Vec3( mVals[1] , -mVals[0] , 0 );
     }
 };
 
@@ -113,22 +127,6 @@ public:
                 (*this)(i,j) = m(i,j);
     }
 
-
-    Vec3 operator * (const Vec3 & p) // computes m.p
-    {
-        //Fonction à completer
-        //Pour acceder a un element de la matrice (*this)(i,j) et du point p[i]
-        return Vec3(); //A remplacer par le résultat de la multiplication
-    }
-
-    Mat3 operator * (const Mat3 & m2)
-    {
-        //Fonction à completer
-        //Pour acceder a un element de la premiere matrice (*this)(i,j) et de la deuxième m2(k,l)
-
-        return Mat3(); //A remplacer par le résultat de la multiplication
-    }
-
     bool isnan() const {
         return std::isnan(vals[0]) || std::isnan(vals[1]) || std::isnan(vals[2])
                  || std::isnan(vals[3]) || std::isnan(vals[4]) || std::isnan(vals[5])
@@ -178,6 +176,29 @@ public:
         return Mat3( (*this)(0,0)*s , (*this)(0,1)*s , (*this)(0,2)*s , (*this)(1,0)*s , (*this)(1,1)*s , (*this)(1,2)*s , (*this)(2,0)*s , (*this)(2,1)*s , (*this)(2,2)*s );
     }
 
+    Vec3 operator * (const Vec3 & p) // computes m.p
+    {
+        return Vec3(
+                    (*this)(0,0)*p[0] + (*this)(0,1)*p[1] + (*this)(0,2)*p[2],
+                    (*this)(1,0)*p[0] + (*this)(1,1)*p[1] + (*this)(1,2)*p[2],
+                    (*this)(2,0)*p[0] + (*this)(2,1)*p[1] + (*this)(2,2)*p[2]);
+    }
+
+    Mat3 operator * (const Mat3 & m2)
+    {
+        return Mat3(
+                    (*this)(0,0)*m2(0,0) + (*this)(0,1)*m2(1,0) + (*this)(0,2)*m2(2,0) ,
+                    (*this)(0,0)*m2(0,1) + (*this)(0,1)*m2(1,1) + (*this)(0,2)*m2(2,1) ,
+                    (*this)(0,0)*m2(0,2) + (*this)(0,1)*m2(1,2) + (*this)(0,2)*m2(2,2) ,
+                    (*this)(1,0)*m2(0,0) + (*this)(1,1)*m2(1,0) + (*this)(1,2)*m2(2,0) ,
+                    (*this)(1,0)*m2(0,1) + (*this)(1,1)*m2(1,1) + (*this)(1,2)*m2(2,1) ,
+                    (*this)(1,0)*m2(0,2) + (*this)(1,1)*m2(1,2) + (*this)(1,2)*m2(2,2) ,
+                    (*this)(2,0)*m2(0,0) + (*this)(2,1)*m2(1,0) + (*this)(2,2)*m2(2,0) ,
+                    (*this)(2,0)*m2(0,1) + (*this)(2,1)*m2(1,1) + (*this)(2,2)*m2(2,1) ,
+                    (*this)(2,0)*m2(0,2) + (*this)(2,1)*m2(1,2) + (*this)(2,2)*m2(2,2)
+                    );
+    }
+
     ////////        ACCESS TO COORDINATES      /////////
     float operator () (unsigned int i , unsigned int j) const
     { return vals[3*i + j]; }
@@ -220,48 +241,6 @@ public:
         float syInv = sy == 0.0 ? 1.0 / sy : defaultValueForInverseSingularValue;
         float szInv = sz == 0.0 ? 1.0 / sz : defaultValueForInverseSingularValue;
         return Vt.getTranspose() * Mat3::diag(sxInv , syInv , szInv) * U.getTranspose();
-    }
-
-    void SVD( Mat3 & U , float & sx , float & sy , float & sz , Mat3 & Vt ) const
-    {
-        gsl_matrix * u = gsl_matrix_alloc(3,3);
-        for(unsigned int i = 0 ; i < 3; ++i)
-            for(unsigned int j = 0 ; j < 3; ++j)
-                gsl_matrix_set( u , i , j , (*this)(i,j) );
-
-        gsl_matrix * v = gsl_matrix_alloc(3,3);
-        gsl_vector * s = gsl_vector_alloc(3);
-        gsl_vector * work = gsl_vector_alloc(3);
-
-        gsl_linalg_SV_decomp (u,
-                              v,
-                              s,
-                              work);
-
-        sx = s->data[0];
-        sy = s->data[1];
-        sz = s->data[2];
-        for(unsigned int i = 0 ; i < 3; ++i)
-        {
-            for(unsigned int j = 0 ; j < 3; ++j)
-            {
-                U(i,j) = gsl_matrix_get( u , i , j );
-                Vt(i,j) = gsl_matrix_get( v , j , i );
-            }
-        }
-        assert( sx >= sy );
-        assert( sy >= sz );
-
-        gsl_matrix_free(u);
-        gsl_matrix_free(v);
-        gsl_vector_free(s);
-        gsl_vector_free(work);
-
-        // a transformation float is given as R.B.S.Bt, R = rotation , B = local basis (rotation matrix), S = scales in the basis B
-        // it can be obtained from the svd decomposition of float = U Sigma Vt :
-        // B = V
-        // S = Sigma
-        // R = U.Vt
     }
 
 
@@ -336,6 +315,133 @@ public:
                          r2[0] , r2[1] , r2[2] ,
                          r3[0] , r3[1] , r3[2] );
     }
+
+    inline static Mat3 RandRotation()
+    {
+        Vec3 axis(-1.0 + 2.0* (float)(rand()) / (float)( RAND_MAX )  ,
+                       -1.0 + 2.0* (float)(rand()) / (float)( RAND_MAX )  ,
+                       -1.0 + 2.0* (float)(rand()) / (float)( RAND_MAX )  );
+        axis.normalize();
+        float angle = 2.0 * M_PI * ((float)(rand()) / (float)( RAND_MAX )   - 0.5 );
+
+        return Mat3::getRotationMatrixFromAxisAndAngle( axis , angle );
+    }
+
+    inline static Mat3 RandRotation( float maxAngle )
+    {
+        Vec3 axis(-1.0 + 2.0* (float)(rand()) / (float)( RAND_MAX )  ,
+                       -1.0 + 2.0* (float)(rand()) / (float)( RAND_MAX )  ,
+                       -1.0 + 2.0* (float)(rand()) / (float)( RAND_MAX )  );
+        axis.normalize();
+        float angle =  maxAngle * ((float)(rand()) / (float)( RAND_MAX )   - 0.5 );
+
+        return Mat3::getRotationMatrixFromAxisAndAngle( axis , angle );
+    }
+
+    inline static Mat3 RandRotation( Vec3 twistAxis , double maxTwist , double maxRotation )
+    {
+        twistAxis.normalize();
+        Vec3 u = twistAxis.getOrthogonal();
+        u.normalize();
+        const Vec3 & v = Vec3::cross(u,twistAxis);
+
+        double uv_axis_angle = 2.0*M_PI * (double)(rand()) / (double)(RAND_MAX);
+        const Vec3 & uv = cos(uv_axis_angle)*u + sin(uv_axis_angle)*v;
+
+        double rotation_angle = maxRotation * ( ( 2.0 *(double)(rand()) / (double)(RAND_MAX) ) - 1.0 );
+        double twist_angle = maxTwist * ( ( 2.0 *(double)(rand()) / (double)(RAND_MAX) ) - 1.0 );
+
+        return Mat3::getRotationMatrixFromAxisAndAngle(uv , rotation_angle) * Mat3::getRotationMatrixFromAxisAndAngle(twistAxis , twist_angle);
+    }
+
+
+    void SVD( Mat3 & U , float & sx , float & sy , float & sz , Mat3 & Vt ) const
+    {
+        gsl_matrix * u = gsl_matrix_alloc(3,3);
+        for(unsigned int i = 0 ; i < 3; ++i)
+            for(unsigned int j = 0 ; j < 3; ++j)
+                gsl_matrix_set( u , i , j , (*this)(i,j) );
+
+        gsl_matrix * v = gsl_matrix_alloc(3,3);
+        gsl_vector * s = gsl_vector_alloc(3);
+        gsl_vector * work = gsl_vector_alloc(3);
+
+        gsl_linalg_SV_decomp (u,
+                              v,
+                              s,
+                              work);
+
+        sx = s->data[0];
+        sy = s->data[1];
+        sz = s->data[2];
+        for(unsigned int i = 0 ; i < 3; ++i)
+        {
+            for(unsigned int j = 0 ; j < 3; ++j)
+            {
+                U(i,j) = gsl_matrix_get( u , i , j );
+                Vt(i,j) = gsl_matrix_get( v , j , i );
+            }
+        }
+        assert( sx >= sy );
+        assert( sy >= sz );
+
+        gsl_matrix_free(u);
+        gsl_matrix_free(v);
+        gsl_vector_free(s);
+        gsl_vector_free(work);
+
+        // a transformation float is given as R.B.S.Bt, R = rotation , B = local basis (rotation matrix), S = scales in the basis B
+        // it can be obtained from the svd decomposition of float = U Sigma Vt :
+        // B = V
+        // S = Sigma
+        // R = U.Vt
+    }
+
+    // ---------- Projections onto Rotations ----------- //
+
+
+    void setRotation()
+    {
+        Mat3 U,Vt;
+        float sx,sy,sz;
+        SVD(U,sx,sy,sz,Vt);
+        const Mat3 & res = U*Vt;
+        if( res.determinant() < 0 )
+        {
+            *this = (U*Mat3::diag(1,1,-1)*Vt);
+            return;
+        }
+        // else
+        *this = (res);
+    }
+
+
+
+
+
+
+    template< class point_t >
+    inline static
+    Mat3 tensor( const point_t & p1 , const point_t & p2 )
+    {
+        return Mat3(
+                    p1[0]*p2[0] , p1[0]*p2[1] , p1[0]*p2[2],
+                    p1[1]*p2[0] , p1[1]*p2[1] , p1[1]*p2[2],
+                    p1[2]*p2[0] , p1[2]*p2[1] , p1[2]*p2[2]);
+    }
+
+    template< class point_t >
+    inline static
+    Mat3 vectorial( const point_t & p )
+    {
+        return Mat3(
+                    0      , -p[2]  , p[1]     ,
+                    p[2]   , 0      , - p[0]   ,
+                    - p[1] , p[0]   , 0
+                    );
+    }
+
+
 
     Mat3 operator - () const
     {
