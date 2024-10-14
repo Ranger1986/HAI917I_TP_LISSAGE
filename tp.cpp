@@ -582,10 +582,10 @@ void key (unsigned char keyPressed, int x, int y) {
     case '1': //Toggle loaded mesh display
         display_mesh = !display_mesh;
         break;
-
-    case 's': //Switches between face normals and vertices normals
-        display_smooth_normals = !display_smooth_normals;
-        break;
+    // //fait planter le code
+    // case 's': //Switches between face normals and vertices normals
+    //     display_smooth_normals = !display_smooth_normals;
+    //     break;
 
     case '+': //Changes weight type: 0 uniforme, 1 aire des triangles, 2 angle du triangle
         weight_type ++;
