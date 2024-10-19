@@ -53,8 +53,8 @@ struct Triangle {
     unsigned int v[3];
     double tshape_;
 };
-double cotangeant(Vec3 a, Vec3 b){
-    double cosinus= Vec3::dot(a,b)/(a.length()-b.length());
+double cotangeant(const Vec3& a, const Vec3& b){
+    double cosinus= Vec3::dot(a,b)/(a.length()*b.length());
     return cosinus / sqrt(1-pow(cosinus, 2));
 }
 void collect_one_ring (std::vector<Vec3> const & i_vertices,
@@ -65,6 +65,7 @@ struct Mesh {
     std::vector< std::vector < double > > edge_weight; 
     std::vector< Vec3 > tempVertices; //array of mesh vertices positions
     std::vector< Vec3 > vunicurvature; 
+    std::vector< Vec3 > vcurvature;
     std::vector< Vec3 > normals; //array of vertices normals useful for the display
     std::vector< Triangle > triangles; //array of mesh triangles
     std::vector< Vec3 > triangle_normals; //triangle normals to display face normals
@@ -230,6 +231,36 @@ struct Mesh {
     }
     void calc_mean_curvature(){
         // TODO
+        vcurvature.clear();
+        vcurvature.resize(vertices.size(), Vec3(0.0,0.0,0.0));
+        std::vector<std::vector<unsigned int>> voisins;
+        collect_one_ring(vertices, triangles, voisins);
+        for (size_t i = 0; i < vertices.size(); i++)
+        {
+            for (size_t j = 0; j < voisins[i].size(); j++)
+            {
+                // std::cout << vcurvature[i] << "+=" << edge_weight[i][voisins[i][j]] << "*" << vertices[voisins[i][j]] << "-" <<vertices[i]<<std::endl;
+                // assert(false);
+                vcurvature[i]+=edge_weight[i][voisins[i][j]]*vertices[voisins[i][j]]-vertices[i];
+            }
+        }
+    }
+    void LB_smooth(unsigned int iters){
+        tempVertices.resize(vertices.size());
+        for (unsigned int i = 0; i < iters; i++)
+        {
+            calc_weights();
+            calc_mean_curvature();
+            for (size_t j = 0; j < vertices.size(); j++)
+            {
+                double total_weight = 0;
+                for (const auto& w : edge_weight[j])total_weight+=w;
+                // std::cout << tempVertices[j] << "=" << vertices[j] << "+" << "(0.5)*(" << vcurvature[j] << "/" <<total_weight<<")"<<std::endl;
+                // assert(false);
+                tempVertices[j] = vertices[j]+ (0.5)*(vcurvature[j]/total_weight);
+            }
+        }
+        this->computeNormals();
     }
 };
 //Transformation made of a rotation and translation
@@ -703,6 +734,12 @@ void key (unsigned char keyPressed, int x, int y) {
         break;
     case 'l': //compute smooth
         mesh.uniform_smooth(5);
+        mesh.applySmooth();
+        glutPostRedisplay();
+        break;
+    case 'b': //compute smooth
+        mesh.LB_smooth(5);
+        mesh.applySmooth();
         glutPostRedisplay();
         break;
     case 't': //compute smooth
