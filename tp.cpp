@@ -241,12 +241,12 @@ struct Mesh {
             {
                 // std::cout << vcurvature[i] << "+=" << edge_weight[i][voisins[i][j]] << "*" << vertices[voisins[i][j]] << "-" <<vertices[i]<<std::endl;
                 // assert(false);
-                vcurvature[i]+=edge_weight[i][voisins[i][j]]*vertices[voisins[i][j]]-vertices[i];
+                vcurvature[i]+=edge_weight[i][voisins[i][j]]*(vertices[voisins[i][j]]-vertices[i]);
             }
         }
     }
     void LB_smooth(unsigned int iters){
-        tempVertices.resize(vertices.size());
+        tempVertices.resize(vertices.size(), Vec3(0.0,0.0,0.0));
         for (unsigned int i = 0; i < iters; i++)
         {
             calc_weights();
