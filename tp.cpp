@@ -51,13 +51,18 @@ struct Triangle {
     }
     // membres indices des sommets du triangle:
     unsigned int v[3];
+    double tshape_;
 };
-
+double cotangeant(Vec3 a, Vec3 b){
+    double cosinus= Vec3::dot(a,b)/(a.length()-b.length());
+    return cosinus / sqrt(1-pow(cosinus, 2));
+}
 void collect_one_ring (std::vector<Vec3> const & i_vertices,
                        std::vector< Triangle > const & i_triangles,
                        std::vector<std::vector<unsigned int> > & o_one_ring);
 struct Mesh {
     std::vector< Vec3 > vertices; //array of mesh vertices positions
+    std::vector< std::vector < double > > edge_weight; 
     std::vector< Vec3 > tempVertices; //array of mesh vertices positions
     std::vector< Vec3 > vunicurvature; 
     std::vector< Vec3 > normals; //array of vertices normals useful for the display
@@ -184,6 +189,47 @@ struct Mesh {
                 (RAND_MAX))*n[1], p[2] + factor*((double)(rand()) / (double)
                 (RAND_MAX))*n[2]);
         }
+    }
+    void calc_triangle_quality(){
+        for (size_t i = 0; i < triangles.size(); i++)
+        {
+            double shortest_edge;
+            Vec3 a=vertices[triangles[i][1]]-vertices[triangles[i][0]];
+            shortest_edge = a.length();
+            Vec3 b=vertices[triangles[i][2]]-vertices[triangles[i][0]];
+            if(b.length()<shortest_edge)shortest_edge = b.length();
+            Vec3 c=vertices[triangles[i][1]]-vertices[triangles[i][2]];
+            if(c.length()<shortest_edge)shortest_edge = c.length();
+            double r = (a.length()*b.length()*c.length())/(2*(Vec3::cross(a,b).length()));
+            triangles[i].tshape_ =r/shortest_edge;
+        }
+    }
+    void calc_weights(){
+        // TODO
+        edge_weight.clear();
+        edge_weight.resize(vertices.size(), std::vector<double>(vertices.size(), 0.0));
+        for (const auto& triangle : triangles)
+        {
+            Vec3 e01 = vertices[triangle.v[1]]-vertices[triangle.v[0]];
+            Vec3 e12 = vertices[triangle.v[2]]-vertices[triangle.v[1]];
+            Vec3 e20 = vertices[triangle.v[0]]-vertices[triangle.v[2]];
+
+            double cot0112 = cotangeant(e01,e12);
+            double cot1220 = cotangeant(e12,e20);
+            double cot2001 = cotangeant(e20,e01);
+
+            edge_weight[triangle.v[0]][triangle.v[2]]+=cot0112;
+            edge_weight[triangle.v[2]][triangle.v[0]]+=cot0112;
+
+            edge_weight[triangle.v[1]][triangle.v[0]]+=cot1220;
+            edge_weight[triangle.v[0]][triangle.v[1]]+=cot1220;
+
+            edge_weight[triangle.v[2]][triangle.v[1]]+=cot2001;
+            edge_weight[triangle.v[1]][triangle.v[2]]+=cot2001;
+        }
+    }
+    void calc_mean_curvature(){
+        // TODO
     }
 };
 //Transformation made of a rotation and translation
